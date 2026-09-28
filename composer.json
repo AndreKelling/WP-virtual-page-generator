@@ -1,0 +1,16 @@
+{
+    "name": "junie/virtual-page-generator",
+    "description": "WordPress plugin for virtual page generation",
+    "type": "wordpress-plugin",
+    "require-dev": {
+        "pestphp/pest": "^4.1"
+    },
+    "scripts": {
+        "test": "pest tests/Unit"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}
