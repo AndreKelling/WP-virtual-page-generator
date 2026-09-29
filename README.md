@@ -2,6 +2,18 @@
 
 Virtual Page Generator is a WordPress plugin that dynamically generates virtual pages based on the Cartesian product of **Services** and **Locations** with **Page Templates**. It allows you to create thousands of unique, SEO-friendly pages without cluttering your WordPress database with physical posts.
 
+## Inspired by
+
+Tested these plugins but none was sufficient for my use-case:
+
+- https://wordpress.org/plugins/multiple-pages-generator-by-porthas/
+- https://wordpress.org/plugins/page-generator/
+- https://wordpress.org/plugins/lpagery/
+
+## Created with
+
+Junie (JetBrains) and Gemini 3.7 Flash Model
+
 ## Features
 
 - **Virtual Page Generation**: Automatically creates pages for every combination of Service, Location, and Template.
