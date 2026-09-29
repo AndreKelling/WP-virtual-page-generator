@@ -3,7 +3,8 @@
  * Plugin Name: Virtual Page Generator
  * Description: Generates virtual pages based on the cartesian product of services and locations.
  * Version: 1.0
- * Author: Junie
+ * Author: André Kelling
+ * Author URI: https://andrekelling.de
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
