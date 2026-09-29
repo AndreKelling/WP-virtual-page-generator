@@ -44,18 +44,21 @@ test('sitemap provider returns correct url list', function () {
     $template->post_name = 't';
     $template->post_type = 'vpg_template';
     $template->post_status = 'publish';
+    $template->post_modified_gmt = '2023-01-01 10:00:00';
 
     $service = new WP_Post();
     $service->ID = 2;
     $service->post_title = 'S';
     $service->post_name = 's';
     $service->post_type = 'vpg_service';
+    $service->post_modified_gmt = '2023-01-02 10:00:00';
 
     $location = new WP_Post();
     $location->ID = 3;
     $location->post_title = 'L';
     $location->post_name = 'l';
     $location->post_type = 'vpg_location';
+    $location->post_modified_gmt = '2023-01-03 10:00:00';
 
     $mock_posts = [$template, $service, $location];
 
@@ -64,4 +67,5 @@ test('sitemap provider returns correct url list', function () {
 
     expect($list)->toHaveCount(1);
     expect($list[0]['loc'])->toBe('http://example.com/s-in-l/');
+    expect($list[0]['lastmod'])->toBe('2023-01-03 10:00:00');
 });

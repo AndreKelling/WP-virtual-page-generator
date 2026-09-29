@@ -48,7 +48,8 @@ if ( class_exists( 'WP_Sitemaps_Provider' ) ) {
 					foreach ( $locations as $location ) {
 						if ( $count >= $offset && $added < $limit ) {
 							$url_list[] = [
-								'loc' => $generator->get_virtual_url( $template, $service->post_name, $location->post_name ),
+								'loc'     => $generator->get_virtual_url( $template, $service->post_name, $location->post_name ),
+								'lastmod' => max( $template->post_modified_gmt, $service->post_modified_gmt, $location->post_modified_gmt ),
 							];
 							$added++;
 						}
