@@ -2,8 +2,8 @@
 
 use VirtualPageGenerator as Generator;
 
-require_once __DIR__ . '/../../virtual-page-generator.php';
 require_once __DIR__ . '/../Pest.php';
+require_once __DIR__ . '/../../virtual-page-generator.php';
 
 beforeEach(function () {
     mock_wp_functions();

@@ -158,3 +158,5 @@ function mock_wp_functions() {
         }
     }
 }
+
+mock_wp_functions();
