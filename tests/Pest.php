@@ -94,6 +94,7 @@ function mock_wp_functions() {
             public $post_type;
             public $post_status;
             public $post_modified_gmt;
+            public $post_content;
         }
     }
 
@@ -138,9 +139,32 @@ function mock_wp_functions() {
             if (!isset($mock_posts)) return [];
             
             $type = $args['post_type'] ?? 'post';
-            return array_values(array_filter($mock_posts, function($post) use ($type) {
-                return ($post->post_type ?? 'post') === $type;
+            $name = $args['name'] ?? null;
+            return array_values(array_filter($mock_posts, function($post) use ($type, $name) {
+                if (($post->post_type ?? 'post') !== $type) {
+                    return false;
+                }
+                if ($name !== null && ($post->post_name ?? '') !== $name) {
+                    return false;
+                }
+                return true;
             }));
+        }
+    }
+
+    if (!function_exists('get_post_meta')) {
+        function get_post_meta($post_id, $key = '', $single = false) {
+            global $mock_post_meta;
+            if (isset($mock_post_meta[$post_id][$key])) {
+                return $mock_post_meta[$post_id][$key];
+            }
+            return $single ? '' : [];
+        }
+    }
+
+    if (!function_exists('wp_get_attachment_image')) {
+        function wp_get_attachment_image($attachment_id, $size = 'thumbnail', $icon = false, $attr = '') {
+            return '<img src="http://example.com/wp-content/uploads/image-' . $attachment_id . '.jpg" alt="" />';
         }
     }
 
@@ -155,6 +179,28 @@ function mock_wp_functions() {
         function wp_count_posts($type) {
             global $mock_counts;
             return (object) ($mock_counts[$type] ?? ['publish' => 0]);
+        }
+    }
+
+    if (!function_exists('get_query_var')) {
+        function get_query_var($var_name, $default = '') {
+            global $mock_query_vars;
+            return $mock_query_vars[$var_name] ?? $default;
+        }
+    }
+
+    if (!function_exists('locate_template')) {
+        function locate_template($template_names, $load = false, $require_once = true, $args = []) {
+            global $mock_located_templates;
+            if (!empty($mock_located_templates)) {
+                $template_names = (array) $template_names;
+                foreach ($template_names as $template_name) {
+                    if (isset($mock_located_templates[$template_name])) {
+                        return $mock_located_templates[$template_name];
+                    }
+                }
+            }
+            return '';
         }
     }
 }

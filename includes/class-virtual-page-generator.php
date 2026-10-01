@@ -9,6 +9,7 @@ class VirtualPageGenerator
     private static ?VirtualPageGenerator $instance = null;
     private string $plugin_file;
     private string $plugin_path;
+    private ?array $current_page_data = null;
 
     public static function get_instance(
         string $plugin_file = "",
@@ -269,15 +270,15 @@ class VirtualPageGenerator
     public function render_service_meta_box($post): void
     {
         wp_nonce_field("vpg_save_service_meta", "vpg_service_nonce");
-        $image_id = get_post_meta($post->ID, "_vpg_service_image", true);
-        $image_url = $image_id
-            ? wp_get_attachment_image_url($image_id, "full")
+        $service_image_id = get_post_meta($post->ID, "_vpg_service_image", true);
+        $image_url = $service_image_id
+            ? wp_get_attachment_image_url($service_image_id, "full")
             : "";
 
         echo '<div style="margin-bottom: 20px;">';
         echo '<label for="vpg_service_image"><strong>Service Image:</strong></label><br>';
         echo '<input type="hidden" name="vpg_service_image_id" id="vpg_service_image_id" value="' .
-            esc_attr($image_id) .
+            esc_attr($service_image_id) .
             '">';
         echo '<input type="url" name="vpg_service_image_url" id="vpg_service_image_url" value="' .
             esc_url($image_url) .
@@ -366,8 +367,8 @@ class VirtualPageGenerator
         }
 
         if (isset($_POST["vpg_service_image_id"])) {
-            $image_id = intval($_POST["vpg_service_image_id"]);
-            update_post_meta($post_id, "_vpg_service_image", $image_id);
+            $service_image_id = intval($_POST["vpg_service_image_id"]);
+            update_post_meta($post_id, "_vpg_service_image", $service_image_id);
         }
     }
 
@@ -555,6 +556,16 @@ class VirtualPageGenerator
         $location_slug = get_query_var("vpg_location_slug");
 
         if ($template_id || ($service_slug && $location_slug)) {
+            $theme_template = locate_template([
+                "virtual-page.php",
+                "templates/virtual-page.php",
+                "virtual-page-generator/virtual-page.php",
+            ]);
+
+            if ($theme_template) {
+                return $theme_template;
+            }
+
             return $this->plugin_path . "templates/virtual-page.php";
         }
 
@@ -651,5 +662,158 @@ class VirtualPageGenerator
         $output .= "</ul>";
 
         return $output;
+    }
+
+    /**
+     * Set or reset current virtual page data (useful for testing or manual overrides).
+     *
+     * @param array<string, mixed>|null $data
+     * @return void
+     */
+    public function set_page_data(?array $data): void
+    {
+        $this->current_page_data = $data;
+    }
+
+    /**
+     * Get data for current virtual page context.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function get_page_data(): ?array
+    {
+        if ($this->current_page_data !== null) {
+            return $this->current_page_data;
+        }
+
+        $service_slug = get_query_var("vpg_service_slug");
+        $location_slug = get_query_var("vpg_location_slug");
+
+        if (empty($service_slug) && empty($location_slug)) {
+            return null;
+        }
+
+        $service_posts = get_posts([
+            "post_type" => "vpg_service",
+            "name" => $service_slug,
+            "posts_per_page" => 1,
+        ]);
+
+        $location_posts = get_posts([
+            "post_type" => "vpg_location",
+            "name" => $location_slug,
+            "posts_per_page" => 1,
+        ]);
+
+        if (empty($service_posts) || empty($location_posts)) {
+            global $wp_query;
+            if (isset($wp_query) && is_object($wp_query) && method_exists($wp_query, "set_404")) {
+                $wp_query->set_404();
+            }
+            if (function_exists("status_header")) {
+                status_header(404);
+            }
+            if (function_exists("get_template_part")) {
+                get_template_part(404);
+            }
+            if (!defined("PHPUNIT_RUNNING") && !defined("PEST_RUNNING") && !defined("WP_TESTS_DOMAIN")) {
+                exit();
+            }
+            return null;
+        }
+
+        $service = $service_posts[0];
+        $location = $location_posts[0];
+
+        $text = get_post_meta(
+            $location->ID,
+            "_vpg_service_text_" . $service->ID,
+            true,
+        );
+
+        $service_image_id = get_post_meta($service->ID, "_vpg_service_image", true);
+        $service_image_id = $service_image_id ? (int) $service_image_id : null;
+        $service_image_html = $service_image_id && function_exists("wp_get_attachment_image")
+            ? wp_get_attachment_image($service_image_id, "full")
+            : "";
+
+        $template_id = get_query_var("vpg_template_id");
+        $vpg_template = null;
+
+        if ($template_id) {
+            $vpg_template = get_post($template_id);
+            if (
+                !$vpg_template ||
+                "vpg_template" !== $vpg_template->post_type ||
+                "publish" !== $vpg_template->post_status
+            ) {
+                $vpg_template = null;
+            }
+        }
+
+        if (!$vpg_template) {
+            $template_posts = get_posts([
+                "post_type" => "vpg_template",
+                "posts_per_page" => 1,
+                "orderby" => "date",
+                "order" => "DESC",
+                "post_status" => "publish",
+            ]);
+
+            if (empty($template_posts)) {
+                return null;
+            }
+            $vpg_template = $template_posts[0];
+        }
+
+        $title = str_replace(
+            ["{{service}}", "{{location}}"],
+            [$service->post_title, $location->post_title],
+            $vpg_template->post_title,
+        );
+
+        $content = $vpg_template->post_content;
+        $content = str_replace("{{service}}", $service->post_title, $content);
+        $content = str_replace("{{location}}", $location->post_title, $content);
+        $content = str_replace("{{text}}", nl2br(esc_html($text)), $content);
+        $content = str_replace("{{service_image}}", $service_image_html, $content);
+
+        $this->current_page_data = [
+            "service" => $service,
+            "location" => $location,
+            "template" => $vpg_template,
+            "vpg_template" => $vpg_template,
+            "title" => $title,
+            "content" => $content,
+            "text" => $text,
+            "service_image_id" => $service_image_id,
+            "service_image_html" => $service_image_html,
+        ];
+
+        return $this->current_page_data;
+    }
+}
+
+if (!function_exists("vpg_get_page_data")) {
+    /**
+     * Retrieve virtual page data for the current request.
+     *
+     * @return array<string, mixed>|null
+     */
+    function vpg_get_page_data(): ?array
+    {
+        return VirtualPageGenerator::get_instance()?->get_page_data();
+    }
+}
+
+if (!function_exists("vpg_get_virtual_page_data")) {
+    /**
+     * Alias of vpg_get_page_data.
+     *
+     * @return array<string, mixed>|null
+     */
+    function vpg_get_virtual_page_data(): ?array
+    {
+        return VirtualPageGenerator::get_instance()?->get_page_data();
     }
 }

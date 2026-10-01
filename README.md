@@ -70,6 +70,67 @@ You can use the following placeholders in both the **Template Title** and **Temp
 - `{{text}}`: The service-specific text defined in the Location settings for the current Service.
 - `{{service_image}}`: The ID of the service's uploaded image (if set). This should be used in PHP templates to generate the image HTML.
 
+## Overriding the Template in Your Theme
+
+You can override the default rendering of virtual pages by providing a custom template file in your active theme or child theme.
+
+The plugin checks for custom templates using WordPress `locate_template()` in the following order:
+
+1. `virtual-page.php` (theme root)
+2. `templates/virtual-page.php`
+3. `virtual-page-generator/virtual-page.php`
+
+If any of these files exist in your theme, it will be loaded instead of the plugin's default `templates/virtual-page.php`.
+
+### Custom Template Implementation Example
+
+You can use the helper function `vpg_get_page_data()` to access the pre-processed virtual page context (with all placeholders already replaced and metadata queried):
+
+```php
+<?php
+/**
+ * Custom Virtual Page Template (e.g. virtual-page.php)
+ */
+
+$data = function_exists('vpg_get_page_data') ? vpg_get_page_data() : null;
+if (empty($data)) {
+    return;
+}
+
+get_header();
+?>
+
+<main id="primary" class="site-main">
+    <article class="virtual-page">
+        <header class="entry-header">
+            <?php if (!empty($data['image_id'])) : ?>
+                <div class="entry-header__image-wrapper">
+                    <?php echo wp_get_attachment_image($data['image_id'], 'full'); ?>
+                </div>
+            <?php endif; ?>
+            <h1 class="entry-title"><?php echo esc_html($data['title']); ?></h1>
+        </header>
+
+        <div class="entry-content">
+            <?php echo apply_filters('the_content', $data['content']); ?>
+        </div>
+    </article>
+</main>
+
+<?php
+get_footer();
+```
+
+#### Available Data Keys in `vpg_get_page_data()`:
+- `service`: `WP_Post` object for the current service.
+- `location`: `WP_Post` object for the current location.
+- `template` / `vpg_template`: `WP_Post` object for the page template.
+- `title`: Dynamic page title with placeholders substituted.
+- `content`: Dynamic page content with placeholders substituted.
+- `text`: Location text specific to the service.
+- `service_image_id`: Service attachment image ID (or null).
+- `service_image_html`: Rendered HTML image tag for the service image.
+
 ## URL Routing
 
 The plugin automatically registers rewrite rules based on your Page Templates.

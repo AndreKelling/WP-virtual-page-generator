@@ -7,10 +7,14 @@ require_once __DIR__ . '/../../virtual-page-generator.php';
 
 beforeEach(function () {
     mock_wp_functions();
-    global $registered_rules, $mock_posts, $mock_counts;
+    global $registered_rules, $mock_posts, $mock_counts, $mock_query_vars, $mock_located_templates, $mock_post_meta;
     $registered_rules = [];
     $mock_posts = [];
     $mock_counts = [];
+    $mock_query_vars = [];
+    $mock_located_templates = [];
+    $mock_post_meta = [];
+    Generator::get_instance()->set_page_data(null);
 });
 
 test('get_virtual_url generates correct URL with placeholders', function () {
@@ -159,4 +163,103 @@ test('add_to_tsf_sitemap adds virtual urls with correct lastmod', function () {
 
     expect($sitemap)->toHaveKey('http://example.com/mowing-in-berlin/');
     expect($sitemap['http://example.com/mowing-in-berlin/']['lastmod'])->toBe('2023-01-05 12:00:00');
+});
+
+test('handle_virtual_page returns theme template if located', function () {
+    global $mock_query_vars, $mock_located_templates;
+
+    $mock_query_vars = [
+        'vpg_template_id' => '123',
+    ];
+    $mock_located_templates = [
+        'virtual-page.php' => '/path/to/theme/virtual-page.php',
+    ];
+
+    $generator = Generator::get_instance();
+    $template = $generator->handle_virtual_page('/original/template.php');
+
+    expect($template)->toBe('/path/to/theme/virtual-page.php');
+});
+
+test('handle_virtual_page falls back to plugin template if no theme template', function () {
+    global $mock_query_vars;
+
+    $mock_query_vars = [
+        'vpg_service_slug' => 'mowing',
+        'vpg_location_slug' => 'berlin',
+    ];
+
+    $generator = Generator::get_instance();
+    $template = $generator->handle_virtual_page('/original/template.php');
+
+    expect($template)->toContain('templates/virtual-page.php');
+});
+
+test('handle_virtual_page returns original template if query vars are missing', function () {
+    $generator = Generator::get_instance();
+    $template = $generator->handle_virtual_page('/original/template.php');
+
+    expect($template)->toBe('/original/template.php');
+});
+
+test('get_page_data returns structured data with replaced placeholders', function () {
+    global $mock_posts, $mock_query_vars, $mock_post_meta;
+
+    $template = new WP_Post();
+    $template->ID = 10;
+    $template->post_title = '{{service}} in {{location}}';
+    $template->post_content = 'We offer {{service}} in {{location}}. Details: {{text}}. Image: {{service_image}}';
+    $template->post_type = 'vpg_template';
+    $template->post_status = 'publish';
+
+    $location = new WP_Post();
+    $location->ID = 20;
+    $location->post_title = 'Berlin';
+    $location->post_name = 'berlin';
+    $location->post_type = 'vpg_location';
+
+    $service = new WP_Post();
+    $service->ID = 30;
+    $service->post_title = 'Mowing';
+    $service->post_name = 'mowing';
+    $service->post_type = 'vpg_service';
+
+    $mock_posts = [$template, $location, $service];
+    $mock_query_vars = [
+        'vpg_service_slug' => 'mowing',
+        'vpg_location_slug' => 'berlin',
+        'vpg_template_id' => '10',
+    ];
+    $mock_post_meta = [
+        20 => ['_vpg_service_text_30' => 'Best mowing team in Berlin.'],
+        30 => ['_vpg_service_image' => '99'],
+    ];
+
+    $generator = Generator::get_instance();
+    $data = $generator->get_page_data();
+
+    expect($data)->not->toBeNull();
+    expect($data['service'])->toBe($service);
+    expect($data['location'])->toBe($location);
+    expect($data['template'])->toBe($template);
+    expect($data['vpg_template'])->toBe($template);
+    expect($data['title'])->toBe('Mowing in Berlin');
+    expect($data['text'])->toBe('Best mowing team in Berlin.');
+    expect($data['service_image_id'])->toBe(99);
+    expect($data['content'])->toContain('We offer Mowing in Berlin.')
+                            ->toContain('Best mowing team in Berlin.')
+                            ->toContain('http://example.com/wp-content/uploads/image-99.jpg');
+
+    // Test helper function and caching
+    expect(vpg_get_page_data())->toBe($data);
+    expect(vpg_get_virtual_page_data())->toBe($data);
+});
+
+test('get_page_data returns null when query vars are absent', function () {
+    global $mock_query_vars;
+    $mock_query_vars = [];
+
+    $generator = Generator::get_instance();
+    expect($generator->get_page_data())->toBeNull();
+    expect(vpg_get_page_data())->toBeNull();
 });
