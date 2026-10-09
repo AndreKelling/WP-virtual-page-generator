@@ -202,13 +202,13 @@ test('handle_virtual_page returns original template if query vars are missing', 
     expect($template)->toBe('/original/template.php');
 });
 
-test('get_page_data returns structured data with replaced placeholders', function () {
+test('get_page_data returns structured data with replaced placeholders including service_text', function () {
     global $mock_posts, $mock_query_vars, $mock_post_meta;
 
     $template = new WP_Post();
     $template->ID = 10;
     $template->post_title = '{{service}} in {{location}}';
-    $template->post_content = 'We offer {{service}} in {{location}}. Details: {{text}}. Image: {{service_image}}';
+    $template->post_content = 'We offer {{service}} in {{location}}. Details: {{text}}. Service info: {{service_text}}. Image: {{service_image}}';
     $template->post_type = 'vpg_template';
     $template->post_status = 'publish';
 
@@ -232,7 +232,10 @@ test('get_page_data returns structured data with replaced placeholders', functio
     ];
     $mock_post_meta = [
         20 => ['_vpg_service_text_30' => 'Best mowing team in Berlin.'],
-        30 => ['_vpg_service_image' => '99'],
+        30 => [
+            '_vpg_service_image' => '99',
+            '_vpg_service_text' => '<p>Comprehensive professional mowing services.</p>',
+        ],
     ];
 
     $generator = Generator::get_instance();
@@ -245,14 +248,55 @@ test('get_page_data returns structured data with replaced placeholders', functio
     expect($data['vpg_template'])->toBe($template);
     expect($data['title'])->toBe('Mowing in Berlin');
     expect($data['text'])->toBe('Best mowing team in Berlin.');
+    expect($data['service_text'])->toBe('<p>Comprehensive professional mowing services.</p>');
     expect($data['service_image_id'])->toBe(99);
     expect($data['content'])->toContain('We offer Mowing in Berlin.')
                             ->toContain('Best mowing team in Berlin.')
+                            ->toContain('<p>Comprehensive professional mowing services.</p>')
                             ->toContain('http://example.com/wp-content/uploads/image-99.jpg');
 
     // Test helper function and caching
     expect(vpg_get_page_data())->toBe($data);
     expect(vpg_get_virtual_page_data())->toBe($data);
+});
+
+test('render_service_text_meta_box renders editor with saved service_text', function () {
+    global $mock_post_meta;
+
+    $service = new WP_Post();
+    $service->ID = 55;
+    $service->post_title = 'Tree Care';
+
+    $mock_post_meta = [
+        55 => ['_vpg_service_text' => 'Quality tree care services.'],
+    ];
+
+    $generator = Generator::get_instance();
+    ob_start();
+    $generator->render_service_text_meta_box($service);
+    $output = ob_get_clean();
+
+    expect($output)->toContain('name="service_text"')
+                   ->toContain('Quality tree care services.');
+});
+
+test('save_service_meta saves service_text and service_image_id', function () {
+    global $mock_post_meta;
+
+    $_POST = [
+        'vpg_service_nonce' => 'valid_nonce',
+        'vpg_service_image_id' => '105',
+        'service_text' => '<p>New lawn trimming text</p>',
+    ];
+
+    $generator = Generator::get_instance();
+    $generator->save_service_meta(42);
+
+    expect($mock_post_meta[42]['_vpg_service_image'])->toBe(105);
+    expect($mock_post_meta[42]['_vpg_service_text'])->toBe('<p>New lawn trimming text</p>');
+    expect($mock_post_meta[42]['service_text'])->toBe('<p>New lawn trimming text</p>');
+
+    $_POST = [];
 });
 
 test('get_page_data returns null when query vars are absent', function () {

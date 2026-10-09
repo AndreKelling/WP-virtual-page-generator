@@ -21,6 +21,7 @@ Junie (JetBrains) and Gemini 3.7 Flash Model
 - **Gutenberg Support**: Use the WordPress Block Editor to design your Page Templates.
 - **Dynamic Content**: Use placeholders to inject service and location data into your templates.
 - **Service-Specific Location Text**: Define unique descriptions for each service within a specific location.
+- **Service WYSIWYG Text**: Add rich formatted descriptions directly to each service via the `service_text` field.
 - **Service Images**: Upload images for each service and display them using the `{{service_image}}` placeholder. This should be used in PHP templates to generate the image HTML.
 - **Sitemap Integration**: Full support for WordPress Core Sitemaps and The SEO Framework (TSF).
 - **Admin Overview**: A dedicated dashboard to view all generated URLs.
@@ -47,8 +48,8 @@ The plugin will generate **6 virtual pages**:
 
 ### 1. Services
 Go to **Page Generator > Services** to add your services. These represent the primary topics of your virtual pages.
-- In the Service editor, you will find a **Service Image** meta box.
-Upload an image for each service that will be displayed in your templates using the `{{service_image}}` placeholder. This should be used in PHP templates to generate the image HTML.
+- In the Service editor, you will find a **Service Text** WYSIWYG editor meta box to enter rich formatted text describing the service (`{{service_text}}`).
+- In the Service editor, you will also find a **Service Image** meta box to upload an image for each service (`{{service_image}}`).
 
 ### 2. Locations
 Go to **Page Generator > Locations** to add your target areas.
@@ -68,6 +69,7 @@ You can use the following placeholders in both the **Template Title** and **Temp
 - `{{service}}`: The name of the current Service.
 - `{{location}}`: The name of the current Location.
 - `{{text}}`: The service-specific text defined in the Location settings for the current Service.
+- `{{service_text}}`: The rich text defined in the Service settings (`service_text`).
 - `{{service_image}}`: The ID of the service's uploaded image (if set). This should be used in PHP templates to generate the image HTML.
 
 ## Overriding the Template in Your Theme
@@ -128,6 +130,7 @@ get_footer();
 - `title`: Dynamic page title with placeholders substituted.
 - `content`: Dynamic page content with placeholders substituted.
 - `text`: Location text specific to the service.
+- `service_text`: Rich text content from the Service's `service_text` field.
 - `service_image_id`: Service attachment image ID (or null).
 - `service_image_html`: Rendered HTML image tag for the service image.
 

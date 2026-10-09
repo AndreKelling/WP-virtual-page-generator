@@ -162,6 +162,75 @@ function mock_wp_functions() {
         }
     }
 
+    if (!function_exists('update_post_meta')) {
+        function update_post_meta($post_id, $key, $value, $prev_value = '') {
+            global $mock_post_meta;
+            if (!isset($mock_post_meta[$post_id])) {
+                $mock_post_meta[$post_id] = [];
+            }
+            $mock_post_meta[$post_id][$key] = $value;
+            return true;
+        }
+    }
+
+    if (!function_exists('wp_editor')) {
+        function wp_editor($content, $editor_id, $settings = []) {
+            echo '<textarea id="' . esc_attr($editor_id) . '" name="' . esc_attr($settings['textarea_name'] ?? $editor_id) . '">' . esc_html($content) . '</textarea>';
+        }
+    }
+
+    if (!function_exists('wp_kses_post')) {
+        function wp_kses_post($data) {
+            return $data;
+        }
+    }
+
+    if (!function_exists('wp_unslash')) {
+        function wp_unslash($data) {
+            return $data;
+        }
+    }
+
+    if (!function_exists('wp_nonce_field')) {
+        function wp_nonce_field($action = -1, $name = '_wpnonce', $referer = true, $echo = true) {
+            $html = '<input type="hidden" name="' . esc_attr($name) . '" value="mock_nonce" />';
+            if ($echo) {
+                echo $html;
+            }
+            return $html;
+        }
+    }
+
+    if (!function_exists('wp_verify_nonce')) {
+        function wp_verify_nonce($nonce, $action = -1) {
+            return true;
+        }
+    }
+
+    if (!function_exists('current_user_can')) {
+        function current_user_can($capability, ...$args) {
+            return true;
+        }
+    }
+
+    if (!function_exists('esc_attr')) {
+        function esc_attr($text) {
+            return htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8');
+        }
+    }
+
+    if (!function_exists('esc_textarea')) {
+        function esc_textarea($text) {
+            return htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8');
+        }
+    }
+
+    if (!function_exists('sanitize_textarea_field')) {
+        function sanitize_textarea_field($str) {
+            return trim(strip_tags((string) $str));
+        }
+    }
+
     if (!function_exists('wp_get_attachment_image')) {
         function wp_get_attachment_image($attachment_id, $size = 'thumbnail', $icon = false, $attr = '') {
             return '<img src="http://example.com/wp-content/uploads/image-' . $attachment_id . '.jpg" alt="" />';
