@@ -11,7 +11,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-// Include classes
+// Include classes (order matters: dependencies first)
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-vpg-admin.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-vpg-rewrite.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-vpg-page-data.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-virtual-page-generator.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-vpg-sitemap-provider.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-vpg-search-handler.php';

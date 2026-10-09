@@ -61,6 +61,14 @@ function mock_wp_functions() {
             return dirname($file) . '/';
         }
     }
+    if (!function_exists('flush_rewrite_rules')) {
+        function flush_rewrite_rules($hard = true) {}
+    }
+    if (!function_exists('get_current_screen')) {
+        function get_current_screen() {
+            return null;
+        }
+    }
     if (!class_exists('WP_Sitemaps_Provider')) {
         class WP_Sitemaps_Provider {
             public $name;

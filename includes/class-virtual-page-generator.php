@@ -4,12 +4,31 @@ if (!defined("ABSPATH")) {
     exit();
 }
 
+/**
+ * Main plugin orchestrator for Virtual Page Generator.
+ *
+ * Responsibilities:
+ * - Singleton instance management
+ * - CPT registration
+ * - Admin menu
+ * - Wiring sub-components (Admin, Rewrite, PageData, Sitemaps, Blocks)
+ * - Template resolution for virtual pages
+ * - Block rendering
+ */
 class VirtualPageGenerator
 {
     private static ?VirtualPageGenerator $instance = null;
     private string $plugin_file;
     private string $plugin_path;
-    private ?array $current_page_data = null;
+
+    /** @var VPG_Admin */
+    private $admin;
+
+    /** @var VPG_Rewrite */
+    private $rewrite;
+
+    /** @var VPG_Page_Data */
+    private $pageData;
 
     public static function get_instance(
         string $plugin_file = "",
@@ -20,24 +39,27 @@ class VirtualPageGenerator
         return self::$instance;
     }
 
+    /**
+     * Reset the singleton instance (primarily for testing).
+     */
+    public static function reset_instance(): void
+    {
+        self::$instance = null;
+    }
+
     private function __construct(string $plugin_file)
     {
         $this->plugin_file = $plugin_file;
         $this->plugin_path = plugin_dir_path($plugin_file);
 
+        // Initialize sub-components
+        $this->admin = new VPG_Admin();
+        $this->rewrite = new VPG_Rewrite();
+        $this->pageData = new VPG_Page_Data($this->rewrite);
+
+        // Core hooks
         add_action("init", [$this, "register_post_types"]);
-        add_action("add_meta_boxes", [$this, "add_location_meta_boxes"]);
-        add_action("add_meta_boxes", [$this, "add_service_meta_boxes"]);
-        add_action("add_meta_boxes", [$this, "add_template_meta_boxes"]);
-        add_action("save_post", [$this, "save_location_meta"]);
-        add_action("save_post_vpg_service", [$this, "save_service_meta"]);
-        add_action("save_post_vpg_template", [$this, "flush_rules_on_save"]);
-        add_action("save_post_vpg_template", [$this, "refresh_tsf_sitemaps"]);
-        add_action("save_post_vpg_service", [$this, "refresh_tsf_sitemaps"]);
-        add_action("save_post_vpg_location", [$this, "refresh_tsf_sitemaps"]);
-        add_action("deleted_post", [$this, "refresh_tsf_sitemaps_on_deletion"]);
-        add_action("init", [$this, "add_rewrite_rules"]);
-        add_filter("query_vars", [$this, "add_query_vars"]);
+        add_action("admin_menu", [$this, "add_admin_menu"]);
         add_filter("template_include", [$this, "handle_virtual_page"]);
         add_action("wp_sitemaps_init", [$this, "init_sitemaps"]);
         add_filter(
@@ -46,8 +68,10 @@ class VirtualPageGenerator
             10,
             2,
         );
-        add_action("admin_notices", [$this, "add_admin_docs"]);
-        add_action("admin_menu", [$this, "add_admin_menu"]);
+        add_action("save_post_vpg_template", [$this, "refresh_tsf_sitemaps"]);
+        add_action("save_post_vpg_service", [$this, "refresh_tsf_sitemaps"]);
+        add_action("save_post_vpg_location", [$this, "refresh_tsf_sitemaps"]);
+        add_action("deleted_post", [$this, "refresh_tsf_sitemaps_on_deletion"]);
         add_filter("rest_search_handlers", [$this, "register_search_handler"]);
         add_action("init", [$this, "register_blocks"]);
 
@@ -55,10 +79,14 @@ class VirtualPageGenerator
         register_deactivation_hook($this->plugin_file, [$this, "deactivate"]);
     }
 
+    // ========================================================================
+    // Lifecycle
+    // ========================================================================
+
     public function activate(): void
     {
         $this->register_post_types();
-        $this->add_rewrite_rules();
+        $this->rewrite->add_rewrite_rules();
         flush_rewrite_rules();
     }
 
@@ -66,6 +94,10 @@ class VirtualPageGenerator
     {
         flush_rewrite_rules();
     }
+
+    // ========================================================================
+    // CPT Registration
+    // ========================================================================
 
     public function register_post_types(): void
     {
@@ -108,6 +140,10 @@ class VirtualPageGenerator
             "show_in_rest" => true,
         ]);
     }
+
+    // ========================================================================
+    // Admin Menu
+    // ========================================================================
 
     public function add_admin_menu(): void
     {
@@ -182,7 +218,7 @@ class VirtualPageGenerator
 
             foreach ($services as $service) {
                 foreach ($locations as $location) {
-                    $url = $this->get_virtual_url(
+                    $url = $this->rewrite->get_virtual_url(
                         $template,
                         $service->post_name,
                         $location->post_name,
@@ -205,494 +241,9 @@ class VirtualPageGenerator
         echo "</div>";
     }
 
-    public function add_location_meta_boxes(): void
-    {
-        add_meta_box(
-            "vpg_location_text",
-            "Location Text",
-            [$this, "render_location_text_meta_box"],
-            "vpg_location",
-            "normal",
-            "high",
-        );
-
-        add_meta_box(
-            "vpg_location_service_text",
-            "Service Specific Texts",
-            [$this, "render_location_meta_box"],
-            "vpg_location",
-            "normal",
-            "high",
-        );
-    }
-
-    public function add_service_meta_boxes(): void
-    {
-        add_meta_box(
-            "vpg_service_text",
-            "Service Text",
-            [$this, "render_service_text_meta_box"],
-            "vpg_service",
-            "normal",
-            "high",
-        );
-
-        add_meta_box(
-            "vpg_service_image",
-            "Service Image",
-            [$this, "render_service_meta_box"],
-            "vpg_service",
-            "normal",
-            "high",
-        );
-    }
-
-    public function add_template_meta_boxes(): void
-    {
-        add_meta_box(
-            "vpg_template_placeholders",
-            "Available Placeholders",
-            [$this, "render_template_placeholders_meta_box"],
-            "vpg_template",
-            "side",
-            "high",
-        );
-    }
-
-    public function render_template_placeholders_meta_box($post): void
-    {
-        echo '<div class="vpg-placeholders-reference">';
-        echo '<p>The following placeholders are available in your template content and will be replaced when virtual pages are generated.</p>';
-        $this->render_placeholder_table($this->get_placeholder_data());
-        echo '<p><strong>Note:</strong> <code>{{service}}</code> and <code>{{location}}</code> can also be used in the <strong>Template Title</strong> to define the URL structure.</p>';
-        echo '</div>';
-    }
-
-    public function get_placeholder_data(): array
-    {
-        return [
-            [
-                "placeholder" => "{{service}}",
-                "description" => "The name of the current service.",
-                "source" => "Service",
-            ],
-            [
-                "placeholder" => "{{location}}",
-                "description" => "The name of the current location.",
-                "source" => "Location",
-            ],
-            [
-                "placeholder" => "{{service_text}}",
-                "description" => "Rich text description of the service (WYSIWYG).",
-                "source" => "Service",
-            ],
-            [
-                "placeholder" => "{{service_image}}",
-                "description" => "The service's uploaded image. Renders as an <code>&lt;img&gt;</code> tag in templates.",
-                "source" => "Service",
-            ],
-            [
-                "placeholder" => "{{location_text}}",
-                "description" => "General rich text description of the location (WYSIWYG).",
-                "source" => "Location",
-            ],
-            [
-                "placeholder" => "{{location_for_service_text}}",
-                "description" => "Rich text for the current service within this location (WYSIWYG, one per service).",
-                "source" => "Location",
-            ],
-        ];
-    }
-
-    public function render_placeholder_table($placeholders): void
-    {
-        foreach ($placeholders as $item) {
-            echo '<div class="vpg-placeholder-item" style="margin-bottom: 10px; padding: 8px; background: #f6f7f9; border-radius: 4px;">';
-            echo '<code style="font-size: 13px;">' . esc_html($item["placeholder"]) . '</code>';
-            echo '<p style="margin: 4px 0 0 0; font-size: 12px; color: #646970;">' . $item["description"] . '</p>';
-            echo '<span style="font-size: 11px; color: #8c8f94;">From: ' . esc_html($item["source"]) . '</span>';
-            echo '</div>';
-        }
-    }
-
-    public function render_location_text_meta_box($post): void
-    {
-        wp_nonce_field("vpg_save_location_meta", "vpg_location_nonce");
-        $location_text = get_post_meta($post->ID, "_vpg_location_text", true);
-        if (empty($location_text)) {
-            $location_text = get_post_meta($post->ID, "location_text", true);
-        }
-
-        wp_editor((string) $location_text, "location_text", [
-            "textarea_name" => "location_text",
-            "textarea_rows" => 10,
-            "media_buttons" => true,
-            "quicktags" => true,
-        ]);
-    }
-
-    public function render_location_meta_box($post): void
-    {
-        $services = get_posts([
-            "post_type" => "vpg_service",
-            "posts_per_page" => -1,
-            "orderby" => "title",
-            "order" => "ASC",
-        ]);
-
-        wp_nonce_field("vpg_save_location_meta", "vpg_location_nonce");
-
-        if (empty($services)) {
-            echo "<p>Please add some services first.</p>";
-            return;
-        }
-
-        foreach ($services as $service) {
-            $location_for_service_text = get_post_meta(
-                $post->ID,
-                "_vpg_location_for_service_text_" . $service->ID,
-                true,
-            );
-            echo '<div style="margin-bottom: 20px;">';
-            echo '<strong>Location text for ' .
-                esc_html($service->post_title) .
-                ":</strong><br>";
-            wp_editor((string) $location_for_service_text, "vpg_location_for_service_text_" . $service->ID, [
-                "textarea_name" => "vpg_location_for_service_text[" . $service->ID . "]",
-                "textarea_rows" => 10,
-                "media_buttons" => true,
-                "quicktags" => true,
-            ]);
-            echo "</div>";
-        }
-    }
-
-    public function render_service_text_meta_box($post): void
-    {
-        wp_nonce_field("vpg_save_service_meta", "vpg_service_nonce");
-        $service_text = get_post_meta($post->ID, "_vpg_service_text", true);
-        if (empty($service_text)) {
-            $service_text = get_post_meta($post->ID, "service_text", true);
-        }
-
-        wp_editor((string) $service_text, "service_text", [
-            "textarea_name" => "service_text",
-            "textarea_rows" => 10,
-            "media_buttons" => true,
-            "quicktags" => true,
-        ]);
-    }
-
-    public function render_service_meta_box($post): void
-    {
-        wp_nonce_field("vpg_save_service_meta", "vpg_service_nonce");
-        $service_image_id = get_post_meta($post->ID, "_vpg_service_image", true);
-        $image_url = $service_image_id
-            ? wp_get_attachment_image_url($service_image_id, "full")
-            : "";
-
-        echo '<div style="margin-bottom: 20px;">';
-        echo '<label for="vpg_service_image"><strong>Service Image:</strong></label><br>';
-        echo '<input type="hidden" name="vpg_service_image_id" id="vpg_service_image_id" value="' .
-            esc_attr($service_image_id) .
-            '">';
-        echo '<input type="url" name="vpg_service_image_url" id="vpg_service_image_url" value="' .
-            esc_url($image_url) .
-            '" style="width: 100%; margin-bottom: 10px;" placeholder="Enter image URL or upload using the button below">';
-        echo '<button type="button" id="vpg_upload_image_button" class="button">Upload Image</button>';
-        if ($image_url) {
-            echo '<div style="margin-top: 10px;">';
-            echo '<img src="' .
-                esc_url($image_url) .
-                '" style="max-width: 300px; max-height: 200px;" alt="Service Image Preview">';
-            echo "</div>";
-        }
-        echo "</div>";
-
-        // Add media uploader script
-        echo "<script>";
-        echo 'jQuery(document).ready(function($) {';
-        echo "    var frame;";
-        echo '    $("#vpg_upload_image_button").on("click", function(e) {';
-        echo "        e.preventDefault();";
-        echo "        if (frame) {";
-        echo "            frame.open();";
-        echo "            return;";
-        echo "        }";
-        echo "        frame = wp.media({";
-        echo '            title: "Select Service Image",';
-        echo '            button: { text: "Use this image" },';
-        echo "            multiple: false";
-        echo "        });";
-        echo '        frame.on("select", function() {';
-        echo '            var attachment = frame.state().get("selection").first().toJSON();';
-        echo '            $("#vpg_service_image_id").val(attachment.id);';
-        echo '            $("#vpg_service_image_url").val(attachment.url);';
-        echo '            $("img").attr("src", attachment.url);';
-        echo "        });";
-        echo "        frame.open();";
-        echo "    });";
-        echo "});";
-        echo "</script>";
-    }
-
-    public function save_location_meta($post_id): void
-    {
-        if (
-            !isset($_POST["vpg_location_nonce"]) ||
-            !wp_verify_nonce(
-                $_POST["vpg_location_nonce"],
-                "vpg_save_location_meta",
-            )
-        ) {
-            return;
-        }
-
-        if (defined("DOING_AUTOSAVE") && DOING_AUTOSAVE) {
-            return;
-        }
-
-        if (function_exists("current_user_can") && !current_user_can("edit_post", $post_id)) {
-            return;
-        }
-
-        if (isset($_POST["location_text"])) {
-            $location_text = wp_kses_post(wp_unslash($_POST["location_text"]));
-            update_post_meta($post_id, "_vpg_location_text", $location_text);
-            update_post_meta($post_id, "location_text", $location_text);
-        } elseif (isset($_POST["vpg_location_text"]) && is_string($_POST["vpg_location_text"])) {
-            $location_text = wp_kses_post(wp_unslash($_POST["vpg_location_text"]));
-            update_post_meta($post_id, "_vpg_location_text", $location_text);
-            update_post_meta($post_id, "location_text", $location_text);
-        }
-
-        if (
-            isset($_POST["vpg_location_for_service_text"]) &&
-            is_array($_POST["vpg_location_for_service_text"])
-        ) {
-            foreach ($_POST["vpg_location_for_service_text"] as $service_id => $text) {
-                $location_for_service_text = wp_kses_post(wp_unslash($text));
-                update_post_meta(
-                    $post_id,
-                    "_vpg_location_for_service_text_" . intval($service_id),
-                    $location_for_service_text,
-                );
-            }
-        }
-    }
-
-    public function save_service_meta($post_id): void
-    {
-        if (
-            !isset($_POST["vpg_service_nonce"]) ||
-            !wp_verify_nonce(
-                $_POST["vpg_service_nonce"],
-                "vpg_save_service_meta",
-            )
-        ) {
-            return;
-        }
-
-        if (defined("DOING_AUTOSAVE") && DOING_AUTOSAVE) {
-            return;
-        }
-
-        if (function_exists("current_user_can") && !current_user_can("edit_post", $post_id)) {
-            return;
-        }
-
-        if (isset($_POST["vpg_service_image_id"])) {
-            $service_image_id = intval($_POST["vpg_service_image_id"]);
-            update_post_meta($post_id, "_vpg_service_image", $service_image_id);
-        }
-
-        if (isset($_POST["service_text"])) {
-            $service_text = wp_kses_post(wp_unslash($_POST["service_text"]));
-            update_post_meta($post_id, "_vpg_service_text", $service_text);
-            update_post_meta($post_id, "service_text", $service_text);
-        } elseif (isset($_POST["vpg_service_text"]) && is_string($_POST["vpg_service_text"])) {
-            $service_text = wp_kses_post(wp_unslash($_POST["vpg_service_text"]));
-            update_post_meta($post_id, "_vpg_service_text", $service_text);
-            update_post_meta($post_id, "service_text", $service_text);
-        }
-    }
-
-    public function flush_rules_on_save(): void
-    {
-        if (defined("DOING_AUTOSAVE") && DOING_AUTOSAVE) {
-            return;
-        }
-        $this->add_rewrite_rules();
-        flush_rewrite_rules();
-    }
-
-    public function refresh_tsf_sitemaps(): void
-    {
-        if (class_exists("The_SEO_Framework\Sitemap\Registry")) {
-            \The_SEO_Framework\Sitemap\Registry::refresh_sitemaps();
-        }
-    }
-
-    public function refresh_tsf_sitemaps_on_deletion($post_id): void
-    {
-        $post_type = get_post_type($post_id);
-        if (
-            in_array($post_type, [
-                "vpg_service",
-                "vpg_location",
-                "vpg_template",
-            ])
-        ) {
-            $this->refresh_tsf_sitemaps();
-        }
-    }
-
-    public function add_to_tsf_sitemap($custom_urls, $args)
-    {
-        $services = get_posts([
-            "post_type" => "vpg_service",
-            "posts_per_page" => -1,
-        ]);
-
-        $locations = get_posts([
-            "post_type" => "vpg_location",
-            "posts_per_page" => -1,
-        ]);
-
-        $templates = get_posts([
-            "post_type" => "vpg_template",
-            "posts_per_page" => -1,
-            "post_status" => "publish",
-        ]);
-
-        foreach ($templates as $template) {
-            foreach ($services as $service) {
-                foreach ($locations as $location) {
-                    $url = $this->get_virtual_url(
-                        $template,
-                        $service->post_name,
-                        $location->post_name,
-                    );
-                    $custom_urls[$url] = [
-                        "lastmod" => max(
-                            $template->post_modified_gmt,
-                            $service->post_modified_gmt,
-                            $location->post_modified_gmt,
-                        ),
-                    ];
-                }
-            }
-        }
-
-        return $custom_urls;
-    }
-
-    public function get_virtual_url(
-        WP_Post $template,
-        string $service_slug,
-        string $location_slug,
-    ): ?string {
-        $title = $template->post_title;
-
-        $has_service = str_contains($title, "{{service}}");
-        $has_location = str_contains($title, "{{location}}");
-
-        $url_part = str_replace(
-            ["{{service}}", "{{location}}"],
-            [$service_slug, $location_slug],
-            $title,
-        );
-
-        if (!$has_service) {
-            $url_part .= "/" . $service_slug;
-        }
-        if (!$has_location) {
-            $url_part .= "/" . $location_slug;
-        }
-
-        $parts = explode("/", $url_part);
-        $slug_parts = array_map("sanitize_title", $parts);
-        return home_url("/" . implode("/", $slug_parts) . "/");
-    }
-
-    public function add_rewrite_rules(): void
-    {
-        $templates = get_posts([
-            "post_type" => "vpg_template",
-            "posts_per_page" => -1,
-            "post_status" => "publish",
-        ]);
-
-        foreach ($templates as $template) {
-            $title = $template->post_title;
-
-            $has_service = str_contains($title, "{{service}}");
-            $has_location = str_contains($title, "{{location}}");
-
-            $temp_title = $title;
-            if (!$has_service) {
-                $temp_title .= "/{{service}}";
-            }
-            if (!$has_location) {
-                $temp_title .= "/{{location}}";
-            }
-
-            $temp_title = str_replace(
-                ["{{service}}", "{{location}}"],
-                ["VPGSVC", "VPGLOC"],
-                $temp_title,
-            );
-
-            $parts = explode("/", $temp_title);
-            $slug_parts = array_map("sanitize_title", $parts);
-            $slug = implode("/", $slug_parts);
-
-            $svc_pos = strpos($slug, "vpgsvc");
-            $loc_pos = strpos($slug, "vpgloc");
-
-            $regex = preg_quote($slug, "#");
-            $regex = str_replace("vpgsvc", "([^/]+)", $regex);
-            $regex = str_replace("vpgloc", "([^/]+)", $regex);
-
-            $query = "index.php?vpg_template_id=" . $template->ID;
-
-            if ($svc_pos < $loc_pos) {
-                $order = ["service", "location"];
-            } else {
-                $order = ["location", "service"];
-            }
-
-            foreach ($order as $i => $type) {
-                $query .= "&vpg_" . $type . '_slug=$matches[' . ($i + 1) . "]";
-            }
-
-            add_rewrite_rule("^" . $regex . '/?$', $query, "top");
-        }
-    }
-
-    public function add_admin_docs(): void
-    {
-        $screen = get_current_screen();
-        if (!$screen || "edit" !== $screen->base) {
-            return;
-        }
-
-        if ("vpg_service" === $screen->post_type) {
-            echo '<div class="notice notice-info"><p><strong>Services:</strong> Add the services you want to generate pages for. Use these in your templates with <code>{{service}}</code>. You can also upload an image for each service to use with <code>{{service_image}}</code> and add service text to use with <code>{{service_text}}</code>.</p></div>';
-        } elseif ("vpg_location" === $screen->post_type) {
-            echo '<div class="notice notice-info"><p><strong>Locations:</strong> Add the locations you want to cover. You can add general location text using <code>{{location_text}}</code> and service-specific text for each location using <code>{{location_for_service_text}}</code>.</p></div>';
-        } elseif ("vpg_template" === $screen->post_type) {
-            echo '<div class="notice notice-info"><p><strong>Page Templates:</strong> Create a template for your virtual pages. The title of the template defines the URL structure (e.g., <code>{{service}} in {{location}}</code>). Use placeholders: <code>{{service}}</code>, <code>{{location}}</code>, <code>{{location_text}}</code>, <code>{{location_for_service_text}}</code>, <code>{{service_text}}</code>, <code>{{service_image}}</code>.</p></div>';
-        }
-    }
-
-    public function add_query_vars($vars)
-    {
-        $vars[] = "vpg_service_slug";
-        $vars[] = "vpg_location_slug";
-        $vars[] = "vpg_template_id";
-        return $vars;
-    }
+    // ========================================================================
+    // Template Resolution
+    // ========================================================================
 
     public function handle_virtual_page($template)
     {
@@ -717,6 +268,10 @@ class VirtualPageGenerator
         return $template;
     }
 
+    // ========================================================================
+    // Sitemaps
+    // ========================================================================
+
     public function init_sitemaps(): void
     {
         if (class_exists("WP_Sitemaps_Provider")) {
@@ -724,6 +279,71 @@ class VirtualPageGenerator
             wp_register_sitemap_provider("vpgpages", $provider);
         }
     }
+
+    public function add_to_tsf_sitemap($custom_urls, $args)
+    {
+        $services = get_posts([
+            "post_type" => "vpg_service",
+            "posts_per_page" => -1,
+        ]);
+
+        $locations = get_posts([
+            "post_type" => "vpg_location",
+            "posts_per_page" => -1,
+        ]);
+
+        $templates = get_posts([
+            "post_type" => "vpg_template",
+            "posts_per_page" => -1,
+            "post_status" => "publish",
+        ]);
+
+        foreach ($templates as $template) {
+            foreach ($services as $service) {
+                foreach ($locations as $location) {
+                    $url = $this->rewrite->get_virtual_url(
+                        $template,
+                        $service->post_name,
+                        $location->post_name,
+                    );
+                    $custom_urls[$url] = [
+                        "lastmod" => max(
+                            $template->post_modified_gmt,
+                            $service->post_modified_gmt,
+                            $location->post_modified_gmt,
+                        ),
+                    ];
+                }
+            }
+        }
+
+        return $custom_urls;
+    }
+
+    public function refresh_tsf_sitemaps(): void
+    {
+        if (class_exists("The_SEO_Framework\Sitemap\Registry")) {
+            \The_SEO_Framework\Sitemap\Registry::refresh_sitemaps();
+        }
+    }
+
+    public function refresh_tsf_sitemaps_on_deletion($post_id): void
+    {
+        $post_type = get_post_type($post_id);
+        if (
+            in_array($post_type, [
+                "vpg_service",
+                "vpg_location",
+                "vpg_template",
+            ])
+        ) {
+            $this->refresh_tsf_sitemaps();
+        }
+    }
+
+    // ========================================================================
+    // REST & Blocks
+    // ========================================================================
 
     public function register_search_handler($handlers)
     {
@@ -787,7 +407,7 @@ class VirtualPageGenerator
 
         $output = '<ul class="vpg-service-list">';
         foreach ($services as $service) {
-            $url = $this->get_virtual_url(
+            $url = $this->rewrite->get_virtual_url(
                 $template,
                 $service->post_name,
                 $location->post_name,
@@ -809,15 +429,42 @@ class VirtualPageGenerator
         return $output;
     }
 
+    // ========================================================================
+    // Public API — delegates to sub-components
+    // ========================================================================
+
+    /**
+     * Get the rewrite component (for URL generation).
+     */
+    public function get_rewrite(): VPG_Rewrite
+    {
+        return $this->rewrite;
+    }
+
+    /**
+     * Alias for backward compatibility: generates a virtual URL.
+     *
+     * @param WP_Post $template
+     * @param string $service_slug
+     * @param string $location_slug
+     * @return string|null
+     */
+    public function get_virtual_url(
+        WP_Post $template,
+        string $service_slug,
+        string $location_slug,
+    ): ?string {
+        return $this->rewrite->get_virtual_url($template, $service_slug, $location_slug);
+    }
+
     /**
      * Set or reset current virtual page data (useful for testing or manual overrides).
      *
      * @param array<string, mixed>|null $data
-     * @return void
      */
     public function set_page_data(?array $data): void
     {
-        $this->current_page_data = $data;
+        $this->pageData->set_data($data);
     }
 
     /**
@@ -827,131 +474,21 @@ class VirtualPageGenerator
      */
     public function get_page_data(): ?array
     {
-        if ($this->current_page_data !== null) {
-            return $this->current_page_data;
-        }
+        return $this->pageData->get_data();
+    }
 
-        $service_slug = get_query_var("vpg_service_slug");
-        $location_slug = get_query_var("vpg_location_slug");
-
-        if (empty($service_slug) && empty($location_slug)) {
-            return null;
-        }
-
-        $service_posts = get_posts([
-            "post_type" => "vpg_service",
-            "name" => $service_slug,
-            "posts_per_page" => 1,
-        ]);
-
-        $location_posts = get_posts([
-            "post_type" => "vpg_location",
-            "name" => $location_slug,
-            "posts_per_page" => 1,
-        ]);
-
-        if (empty($service_posts) || empty($location_posts)) {
-            global $wp_query;
-            if (isset($wp_query) && is_object($wp_query) && method_exists($wp_query, "set_404")) {
-                $wp_query->set_404();
-            }
-            if (function_exists("status_header")) {
-                status_header(404);
-            }
-            if (function_exists("get_template_part")) {
-                get_template_part(404);
-            }
-            if (!defined("PHPUNIT_RUNNING") && !defined("PEST_RUNNING") && !defined("WP_TESTS_DOMAIN")) {
-                exit();
-            }
-            return null;
-        }
-
-        $service = $service_posts[0];
-        $location = $location_posts[0];
-
-        $location_text = get_post_meta($location->ID, "_vpg_location_text", true);
-        if (empty($location_text)) {
-            $location_text = get_post_meta($location->ID, "location_text", true);
-        }
-
-        $location_for_service_text = get_post_meta(
-            $location->ID,
-            "_vpg_location_for_service_text_" . $service->ID,
-            true,
-        );
-
-        $service_text = get_post_meta($service->ID, "_vpg_service_text", true);
-        if (empty($service_text)) {
-            $service_text = get_post_meta($service->ID, "service_text", true);
-        }
-
-        $service_image_id = get_post_meta($service->ID, "_vpg_service_image", true);
-        $service_image_id = $service_image_id ? (int) $service_image_id : null;
-        $service_image_html = $service_image_id && function_exists("wp_get_attachment_image")
-            ? wp_get_attachment_image($service_image_id, "full")
-            : "";
-
-        $template_id = get_query_var("vpg_template_id");
-        $vpg_template = null;
-
-        if ($template_id) {
-            $vpg_template = get_post($template_id);
-            if (
-                !$vpg_template ||
-                "vpg_template" !== $vpg_template->post_type ||
-                "publish" !== $vpg_template->post_status
-            ) {
-                $vpg_template = null;
-            }
-        }
-
-        if (!$vpg_template) {
-            $template_posts = get_posts([
-                "post_type" => "vpg_template",
-                "posts_per_page" => 1,
-                "orderby" => "date",
-                "order" => "DESC",
-                "post_status" => "publish",
-            ]);
-
-            if (empty($template_posts)) {
-                return null;
-            }
-            $vpg_template = $template_posts[0];
-        }
-
-        $title = str_replace(
-            ["{{service}}", "{{location}}"],
-            [$service->post_title, $location->post_title],
-            $vpg_template->post_title,
-        );
-
-        $content = $vpg_template->post_content;
-        $content = str_replace("{{service}}", $service->post_title, $content);
-        $content = str_replace("{{location}}", $location->post_title, $content);
-        $content = str_replace("{{location_text}}", (string) $location_text, $content);
-        $content = str_replace("{{location_for_service_text}}", (string) $location_for_service_text, $content);
-        $content = str_replace("{{service_text}}", (string) $service_text, $content);
-        $content = str_replace("{{service_image}}", $service_image_html, $content);
-
-        $this->current_page_data = [
-            "service" => $service,
-            "location" => $location,
-            "template" => $vpg_template,
-            "vpg_template" => $vpg_template,
-            "title" => $title,
-            "content" => $content,
-            "location_text" => $location_text,
-            "location_for_service_text" => $location_for_service_text,
-            "service_text" => $service_text,
-            "service_image_id" => $service_image_id,
-            "service_image_html" => $service_image_html,
-        ];
-
-        return $this->current_page_data;
+    /**
+     * Reset the page data cache (useful for testing).
+     */
+    public function reset_page_data(): void
+    {
+        $this->pageData->reset();
     }
 }
+
+// ========================================================================
+// Global helper functions
+// ========================================================================
 
 if (!function_exists("vpg_get_page_data")) {
     /**

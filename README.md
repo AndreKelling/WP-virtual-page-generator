@@ -184,6 +184,19 @@ The plugin provides a custom Gutenberg block called **VPG Services by Location**
 - In the block settings (sidebar), you can select a **Location** and a **Page Template**.
 - The block will automatically render a list of links to all Services for that specific Location, using the selected Template's URL structure.
 
+## Architecture
+
+The plugin is organized into focused classes under `includes/`:
+
+| Class | File | Responsibility |
+|---|---|---|
+| `VirtualPageGenerator` | `class-virtual-page-generator.php` | Main orchestrator: singleton, CPT registration, admin menu, template resolution, sitemaps, blocks. |
+| `VPG_Admin` | `class-vpg-admin.php` | Admin meta boxes (rendering + saving) for Services, Locations, and Templates. Admin notices. |
+| `VPG_Rewrite` | `class-vpg-rewrite.php` | Rewrite rules, URL generation, query variables, rule flushing. |
+| `VPG_Page_Data` | `class-vpg-page-data.php` | Resolves and caches virtual page data: reads query vars, fetches posts/meta, replaces placeholders. |
+| `VPG_Sitemap_Provider` | `class-vpg-sitemap-provider.php` | WordPress Core sitemaps integration. |
+| `VPG_Search_Handler` | `class-vpg-search-handler.php` | Gutenberg REST search integration. |
+
 ## Requirements
 
 - **WordPress**: 5.5 or higher (for Core Sitemaps support).
