@@ -207,6 +207,15 @@ class VirtualPageGenerator
     public function add_location_meta_boxes(): void
     {
         add_meta_box(
+            "vpg_location_text",
+            "Location Text",
+            [$this, "render_location_text_meta_box"],
+            "vpg_location",
+            "normal",
+            "high",
+        );
+
+        add_meta_box(
             "vpg_location_service_text",
             "Service Specific Texts",
             [$this, "render_location_meta_box"],
@@ -235,6 +244,22 @@ class VirtualPageGenerator
             "normal",
             "high",
         );
+    }
+
+    public function render_location_text_meta_box($post): void
+    {
+        wp_nonce_field("vpg_save_location_meta", "vpg_location_nonce");
+        $location_text = get_post_meta($post->ID, "_vpg_location_text", true);
+        if (empty($location_text)) {
+            $location_text = get_post_meta($post->ID, "location_text", true);
+        }
+
+        wp_editor((string) $location_text, "location_text", [
+            "textarea_name" => "location_text",
+            "textarea_rows" => 10,
+            "media_buttons" => true,
+            "quicktags" => true,
+        ]);
     }
 
     public function render_location_meta_box($post): void
@@ -360,6 +385,16 @@ class VirtualPageGenerator
 
         if (function_exists("current_user_can") && !current_user_can("edit_post", $post_id)) {
             return;
+        }
+
+        if (isset($_POST["location_text"])) {
+            $location_text = wp_kses_post(wp_unslash($_POST["location_text"]));
+            update_post_meta($post_id, "_vpg_location_text", $location_text);
+            update_post_meta($post_id, "location_text", $location_text);
+        } elseif (isset($_POST["vpg_location_text"]) && is_string($_POST["vpg_location_text"])) {
+            $location_text = wp_kses_post(wp_unslash($_POST["vpg_location_text"]));
+            update_post_meta($post_id, "_vpg_location_text", $location_text);
+            update_post_meta($post_id, "location_text", $location_text);
         }
 
         if (
@@ -576,9 +611,9 @@ class VirtualPageGenerator
         if ("vpg_service" === $screen->post_type) {
             echo '<div class="notice notice-info"><p><strong>Services:</strong> Add the services you want to generate pages for. Use these in your templates with <code>{{service}}</code>. You can also upload an image for each service to use with <code>{{service_image}}</code> and add service text to use with <code>{{service_text}}</code>.</p></div>';
         } elseif ("vpg_location" === $screen->post_type) {
-            echo '<div class="notice notice-info"><p><strong>Locations:</strong> Add the locations you want to cover. You can define rich formatted text for each service within each location using the WYSIWYG editor. Use <code>{{location}}</code> and <code>{{location_for_service_text}}</code> in your templates.</p></div>';
+            echo '<div class="notice notice-info"><p><strong>Locations:</strong> Add the locations you want to cover. You can add general location text using <code>{{location_text}}</code> and service-specific text for each location using <code>{{location_for_service_text}}</code>.</p></div>';
         } elseif ("vpg_template" === $screen->post_type) {
-            echo '<div class="notice notice-info"><p><strong>Page Templates:</strong> Create a template for your virtual pages. The title of the template defines the URL structure (e.g., <code>{{service}} in {{location}}</code>). Use placeholders: <code>{{service}}</code>, <code>{{location}}</code>, <code>{{location_for_service_text}}</code>, <code>{{service_text}}</code>, <code>{{service_image}}</code>.</p></div>';
+            echo '<div class="notice notice-info"><p><strong>Page Templates:</strong> Create a template for your virtual pages. The title of the template defines the URL structure (e.g., <code>{{service}} in {{location}}</code>). Use placeholders: <code>{{service}}</code>, <code>{{location}}</code>, <code>{{location_text}}</code>, <code>{{location_for_service_text}}</code>, <code>{{service_text}}</code>, <code>{{service_image}}</code>.</p></div>';
         }
     }
 
@@ -766,6 +801,11 @@ class VirtualPageGenerator
         $service = $service_posts[0];
         $location = $location_posts[0];
 
+        $location_text = get_post_meta($location->ID, "_vpg_location_text", true);
+        if (empty($location_text)) {
+            $location_text = get_post_meta($location->ID, "location_text", true);
+        }
+
         $location_for_service_text = get_post_meta(
             $location->ID,
             "_vpg_location_for_service_text_" . $service->ID,
@@ -821,6 +861,7 @@ class VirtualPageGenerator
         $content = $vpg_template->post_content;
         $content = str_replace("{{service}}", $service->post_title, $content);
         $content = str_replace("{{location}}", $location->post_title, $content);
+        $content = str_replace("{{location_text}}", (string) $location_text, $content);
         $content = str_replace("{{location_for_service_text}}", (string) $location_for_service_text, $content);
         $content = str_replace("{{service_text}}", (string) $service_text, $content);
         $content = str_replace("{{service_image}}", $service_image_html, $content);
@@ -832,6 +873,7 @@ class VirtualPageGenerator
             "vpg_template" => $vpg_template,
             "title" => $title,
             "content" => $content,
+            "location_text" => $location_text,
             "location_for_service_text" => $location_for_service_text,
             "service_text" => $service_text,
             "service_image_id" => $service_image_id,

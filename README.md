@@ -20,9 +20,8 @@ Junie (JetBrains) and Gemini 3.7 Flash Model
 - **Flexible URL Structures**: The URL of each virtual page is determined by the title of its Page Template.
 - **Gutenberg Support**: Use the WordPress Block Editor to design your Page Templates.
 - **Dynamic Content**: Use placeholders to inject service and location data into your templates.
-- **Service-Specific Location WYSIWYG Text**: Define rich formatted text for each service within a location via the `location_for_service_text` field.
-- **Service WYSIWYG Text**: Add rich formatted descriptions directly to each service via the `service_text` field.
-- **Service Images**: Upload images for each service and display them using the `{{service_image}}` placeholder. This should be used in PHP templates to generate the image HTML.
+- **WYSIWYG Text Fields**: Add rich formatted text to Services, Locations, and service-specific Location entries.
+- **Service Images**: Upload images for each service and display them using the `{{service_image}}` placeholder.
 - **Sitemap Integration**: Full support for WordPress Core Sitemaps and The SEO Framework (TSF).
 - **Admin Overview**: A dedicated dashboard to view all generated URLs.
 - **Link Integration**: Search and add virtual pages directly in the Gutenberg block editor's link picker.
@@ -48,14 +47,13 @@ The plugin will generate **6 virtual pages**:
 
 ### 1. Services
 Go to **Page Generator > Services** to add your services. These represent the primary topics of your virtual pages.
-- In the Service editor, you will find a **Service Text** WYSIWYG editor meta box to enter rich formatted text describing the service (`{{service_text}}`).
-- In the Service editor, you will also find a **Service Image** meta box to upload an image for each service (`{{service_image}}`).
+- **Service Text**: WYSIWYG editor for a general description of the service. Available in templates as `{{service_text}}`.
+- **Service Image**: Upload an image for the service. Available in templates as `{{service_image}}`.
 
 ### 2. Locations
 Go to **Page Generator > Locations** to add your target areas.
-- In the Location editor, you will find a **Location Text** section with a WYSIWYG editor for each Service.
-- Here, you can enter rich formatted content for every Service you have created.
-- This content can be displayed in the template using the `{{location_for_service_text}}` placeholder.
+- **Location Text**: General WYSIWYG editor for a description of the location. Available in templates as `{{location_text}}`.
+- **Service Specific Texts**: A WYSIWYG editor for each Service, allowing you to define location-specific content per service. Available in templates as `{{location_for_service_text}}`.
 
 ### 3. Page Templates
 Go to **Page Generator > Page Templates** to design the layout of your virtual pages.
@@ -64,13 +62,32 @@ Go to **Page Generator > Page Templates** to design the layout of your virtual p
 
 ## Placeholders
 
-You can use the following placeholders in both the **Template Title** and **Template Content**:
+You can use the following placeholders in your **Template Content**. The `{{service}}` and `{{location}}` placeholders can also be used in the **Template Title** to define the URL structure.
 
-- `{{service}}`: The name of the current Service.
-- `{{location}}`: The name of the current Location.
-- `{{location_for_service_text}}`: The rich text defined in the Location settings for the current Service.
-- `{{service_text}}`: The rich text defined in the Service settings (`service_text`).
-- `{{service_image}}`: The ID of the service's uploaded image (if set). This should be used in PHP templates to generate the image HTML.
+### Basic Placeholders
+
+| Placeholder | Description |
+|---|---|
+| `{{service}}` | The name of the current Service. |
+| `{{location}}` | The name of the current Location. |
+
+### Service Fields
+
+Configured on the **Service** edit screen.
+
+| Placeholder | Field | Description |
+|---|---|---|
+| `{{service_text}}` | Service Text | Rich text description of the service (WYSIWYG). |
+| `{{service_image}}` | Service Image | The service's uploaded image. Use in PHP templates to generate the image HTML. |
+
+### Location Fields
+
+Configured on the **Location** edit screen.
+
+| Placeholder | Field | Description |
+|---|---|---|
+| `{{location_text}}` | Location Text | General rich text description of the location (WYSIWYG). |
+| `{{location_for_service_text}}` | Service Specific Texts | Rich text for the current Service within this Location (WYSIWYG, one per Service). |
 
 ## Overriding the Template in Your Theme
 
@@ -124,15 +141,19 @@ get_footer();
 ```
 
 #### Available Data Keys in `vpg_get_page_data()`:
-- `service`: `WP_Post` object for the current service.
-- `location`: `WP_Post` object for the current location.
-- `template` / `vpg_template`: `WP_Post` object for the page template.
-- `title`: Dynamic page title with placeholders substituted.
-- `content`: Dynamic page content with placeholders substituted.
-- `location_for_service_text`: Rich text content from the Location's `location_for_service_text` field for the current Service.
-- `service_text`: Rich text content from the Service's `service_text` field.
-- `service_image_id`: Service attachment image ID (or null).
-- `service_image_html`: Rendered HTML image tag for the service image.
+
+| Key | Type | Description |
+|---|---|---|
+| `service` | `WP_Post` | The current Service post object. |
+| `location` | `WP_Post` | The current Location post object. |
+| `template` / `vpg_template` | `WP_Post` | The Page Template post object. |
+| `title` | `string` | Dynamic page title with `{{service}}` and `{{location}}` substituted. |
+| `content` | `string` | Dynamic page content with all placeholders substituted. |
+| `location_text` | `string` | General rich text from the Location's `location_text` field. |
+| `location_for_service_text` | `string` | Rich text from the Location for the current Service. |
+| `service_text` | `string` | Rich text from the Service's `service_text` field. |
+| `service_image_id` | `int\|null` | Service attachment image ID (or null). |
+| `service_image_html` | `string` | Rendered HTML image tag for the service image. |
 
 ## URL Routing
 

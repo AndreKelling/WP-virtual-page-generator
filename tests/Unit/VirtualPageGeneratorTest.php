@@ -202,13 +202,13 @@ test('handle_virtual_page returns original template if query vars are missing', 
     expect($template)->toBe('/original/template.php');
 });
 
-test('get_page_data returns structured data with replaced placeholders including location_for_service_text and service_text', function () {
+test('get_page_data returns structured data with replaced placeholders including location_text, location_for_service_text, and service_text', function () {
     global $mock_posts, $mock_query_vars, $mock_post_meta;
 
     $template = new WP_Post();
     $template->ID = 10;
     $template->post_title = '{{service}} in {{location}}';
-    $template->post_content = 'We offer {{service}} in {{location}}. Location details: {{location_for_service_text}}. Service info: {{service_text}}. Image: {{service_image}}';
+    $template->post_content = 'We offer {{service}} in {{location}}. Location info: {{location_text}}. Location details: {{location_for_service_text}}. Service info: {{service_text}}. Image: {{service_image}}';
     $template->post_type = 'vpg_template';
     $template->post_status = 'publish';
 
@@ -231,7 +231,10 @@ test('get_page_data returns structured data with replaced placeholders including
         'vpg_template_id' => '10',
     ];
     $mock_post_meta = [
-        20 => ['_vpg_location_for_service_text_30' => '<p>Best mowing team in Berlin.</p>'],
+        20 => [
+            '_vpg_location_text' => '<p>Welcome to Berlin.</p>',
+            '_vpg_location_for_service_text_30' => '<p>Best mowing team in Berlin.</p>',
+        ],
         30 => [
             '_vpg_service_image' => '99',
             '_vpg_service_text' => '<p>Comprehensive professional mowing services.</p>',
@@ -247,10 +250,12 @@ test('get_page_data returns structured data with replaced placeholders including
     expect($data['template'])->toBe($template);
     expect($data['vpg_template'])->toBe($template);
     expect($data['title'])->toBe('Mowing in Berlin');
+    expect($data['location_text'])->toBe('<p>Welcome to Berlin.</p>');
     expect($data['location_for_service_text'])->toBe('<p>Best mowing team in Berlin.</p>');
     expect($data['service_text'])->toBe('<p>Comprehensive professional mowing services.</p>');
     expect($data['service_image_id'])->toBe(99);
     expect($data['content'])->toContain('We offer Mowing in Berlin.')
+                            ->toContain('<p>Welcome to Berlin.</p>')
                             ->toContain('<p>Best mowing team in Berlin.</p>')
                             ->toContain('<p>Comprehensive professional mowing services.</p>')
                             ->toContain('http://example.com/wp-content/uploads/image-99.jpg');
@@ -299,11 +304,12 @@ test('save_service_meta saves service_text and service_image_id', function () {
     $_POST = [];
 });
 
-test('save_location_meta saves location_for_service_text with WYSIWYG content', function () {
+test('save_location_meta saves location_text and location_for_service_text', function () {
     global $mock_post_meta;
 
     $_POST = [
         'vpg_location_nonce' => 'valid_nonce',
+        'location_text' => '<p>Welcome to Berlin.</p>',
         'vpg_location_for_service_text' => [
             30 => '<p>Best mowing service in Berlin.</p>',
             31 => '<p>Expert pruning in Berlin.</p>',
@@ -313,10 +319,32 @@ test('save_location_meta saves location_for_service_text with WYSIWYG content', 
     $generator = Generator::get_instance();
     $generator->save_location_meta(20);
 
+    expect($mock_post_meta[20]['_vpg_location_text'])->toBe('<p>Welcome to Berlin.</p>');
+    expect($mock_post_meta[20]['location_text'])->toBe('<p>Welcome to Berlin.</p>');
     expect($mock_post_meta[20]['_vpg_location_for_service_text_30'])->toBe('<p>Best mowing service in Berlin.</p>');
     expect($mock_post_meta[20]['_vpg_location_for_service_text_31'])->toBe('<p>Expert pruning in Berlin.</p>');
 
     $_POST = [];
+});
+
+test('render_location_text_meta_box renders editor with saved location_text', function () {
+    global $mock_post_meta;
+
+    $location = new WP_Post();
+    $location->ID = 20;
+    $location->post_title = 'Berlin';
+
+    $mock_post_meta = [
+        20 => ['_vpg_location_text' => '<p>Welcome to Berlin.</p>'],
+    ];
+
+    $generator = Generator::get_instance();
+    ob_start();
+    $generator->render_location_text_meta_box($location);
+    $output = ob_get_clean();
+
+    expect($output)->toContain('name="location_text"')
+                   ->toContain('Welcome to Berlin.');
 });
 
 test('get_page_data returns null when query vars are absent', function () {
