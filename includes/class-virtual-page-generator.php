@@ -254,24 +254,21 @@ class VirtualPageGenerator
         }
 
         foreach ($services as $service) {
-            $text = get_post_meta(
+            $location_for_service_text = get_post_meta(
                 $post->ID,
-                "_vpg_service_text_" . $service->ID,
+                "_vpg_location_for_service_text_" . $service->ID,
                 true,
             );
             echo '<div style="margin-bottom: 20px;">';
-            echo '<label for="vpg_service_text_' .
-                $service->ID .
-                '"><strong>Text for ' .
+            echo '<strong>Location text for ' .
                 esc_html($service->post_title) .
-                ":</strong></label><br>";
-            echo '<textarea id="vpg_service_text_' .
-                $service->ID .
-                '" name="vpg_service_text[' .
-                $service->ID .
-                ']" rows="4" style="width: 100%;">' .
-                esc_textarea($text) .
-                "</textarea>";
+                ":</strong><br>";
+            wp_editor((string) $location_for_service_text, "vpg_location_for_service_text_" . $service->ID, [
+                "textarea_name" => "vpg_location_for_service_text[" . $service->ID . "]",
+                "textarea_rows" => 10,
+                "media_buttons" => true,
+                "quicktags" => true,
+            ]);
             echo "</div>";
         }
     }
@@ -361,15 +358,20 @@ class VirtualPageGenerator
             return;
         }
 
+        if (function_exists("current_user_can") && !current_user_can("edit_post", $post_id)) {
+            return;
+        }
+
         if (
-            isset($_POST["vpg_service_text"]) &&
-            is_array($_POST["vpg_service_text"])
+            isset($_POST["vpg_location_for_service_text"]) &&
+            is_array($_POST["vpg_location_for_service_text"])
         ) {
-            foreach ($_POST["vpg_service_text"] as $service_id => $text) {
+            foreach ($_POST["vpg_location_for_service_text"] as $service_id => $text) {
+                $location_for_service_text = wp_kses_post(wp_unslash($text));
                 update_post_meta(
                     $post_id,
-                    "_vpg_service_text_" . intval($service_id),
-                    sanitize_textarea_field($text),
+                    "_vpg_location_for_service_text_" . intval($service_id),
+                    $location_for_service_text,
                 );
             }
         }
@@ -574,9 +576,9 @@ class VirtualPageGenerator
         if ("vpg_service" === $screen->post_type) {
             echo '<div class="notice notice-info"><p><strong>Services:</strong> Add the services you want to generate pages for. Use these in your templates with <code>{{service}}</code>. You can also upload an image for each service to use with <code>{{service_image}}</code> and add service text to use with <code>{{service_text}}</code>.</p></div>';
         } elseif ("vpg_location" === $screen->post_type) {
-            echo '<div class="notice notice-info"><p><strong>Locations:</strong> Add the locations you want to cover. You can define specific text for each service within each location. Use <code>{{location}}</code> and <code>{{text}}</code> in your templates.</p></div>';
+            echo '<div class="notice notice-info"><p><strong>Locations:</strong> Add the locations you want to cover. You can define rich formatted text for each service within each location using the WYSIWYG editor. Use <code>{{location}}</code> and <code>{{location_for_service_text}}</code> in your templates.</p></div>';
         } elseif ("vpg_template" === $screen->post_type) {
-            echo '<div class="notice notice-info"><p><strong>Page Templates:</strong> Create a template for your virtual pages. The title of the template defines the URL structure (e.g., <code>{{service}} in {{location}}</code>). Use placeholders: <code>{{service}}</code>, <code>{{location}}</code>, <code>{{text}}</code>, <code>{{service_text}}</code>, <code>{{service_image}}</code>.</p></div>';
+            echo '<div class="notice notice-info"><p><strong>Page Templates:</strong> Create a template for your virtual pages. The title of the template defines the URL structure (e.g., <code>{{service}} in {{location}}</code>). Use placeholders: <code>{{service}}</code>, <code>{{location}}</code>, <code>{{location_for_service_text}}</code>, <code>{{service_text}}</code>, <code>{{service_image}}</code>.</p></div>';
         }
     }
 
@@ -764,9 +766,9 @@ class VirtualPageGenerator
         $service = $service_posts[0];
         $location = $location_posts[0];
 
-        $text = get_post_meta(
+        $location_for_service_text = get_post_meta(
             $location->ID,
-            "_vpg_service_text_" . $service->ID,
+            "_vpg_location_for_service_text_" . $service->ID,
             true,
         );
 
@@ -819,7 +821,7 @@ class VirtualPageGenerator
         $content = $vpg_template->post_content;
         $content = str_replace("{{service}}", $service->post_title, $content);
         $content = str_replace("{{location}}", $location->post_title, $content);
-        $content = str_replace("{{text}}", nl2br(esc_html($text)), $content);
+        $content = str_replace("{{location_for_service_text}}", (string) $location_for_service_text, $content);
         $content = str_replace("{{service_text}}", (string) $service_text, $content);
         $content = str_replace("{{service_image}}", $service_image_html, $content);
 
@@ -830,7 +832,7 @@ class VirtualPageGenerator
             "vpg_template" => $vpg_template,
             "title" => $title,
             "content" => $content,
-            "text" => $text,
+            "location_for_service_text" => $location_for_service_text,
             "service_text" => $service_text,
             "service_image_id" => $service_image_id,
             "service_image_html" => $service_image_html,
