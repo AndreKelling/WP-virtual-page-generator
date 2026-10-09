@@ -28,6 +28,7 @@ class VirtualPageGenerator
         add_action("init", [$this, "register_post_types"]);
         add_action("add_meta_boxes", [$this, "add_location_meta_boxes"]);
         add_action("add_meta_boxes", [$this, "add_service_meta_boxes"]);
+        add_action("add_meta_boxes", [$this, "add_template_meta_boxes"]);
         add_action("save_post", [$this, "save_location_meta"]);
         add_action("save_post_vpg_service", [$this, "save_service_meta"]);
         add_action("save_post_vpg_template", [$this, "flush_rules_on_save"]);
@@ -244,6 +245,74 @@ class VirtualPageGenerator
             "normal",
             "high",
         );
+    }
+
+    public function add_template_meta_boxes(): void
+    {
+        add_meta_box(
+            "vpg_template_placeholders",
+            "Available Placeholders",
+            [$this, "render_template_placeholders_meta_box"],
+            "vpg_template",
+            "side",
+            "high",
+        );
+    }
+
+    public function render_template_placeholders_meta_box($post): void
+    {
+        echo '<div class="vpg-placeholders-reference">';
+        echo '<p>The following placeholders are available in your template content and will be replaced when virtual pages are generated.</p>';
+        $this->render_placeholder_table($this->get_placeholder_data());
+        echo '<p><strong>Note:</strong> <code>{{service}}</code> and <code>{{location}}</code> can also be used in the <strong>Template Title</strong> to define the URL structure.</p>';
+        echo '</div>';
+    }
+
+    public function get_placeholder_data(): array
+    {
+        return [
+            [
+                "placeholder" => "{{service}}",
+                "description" => "The name of the current service.",
+                "source" => "Service",
+            ],
+            [
+                "placeholder" => "{{location}}",
+                "description" => "The name of the current location.",
+                "source" => "Location",
+            ],
+            [
+                "placeholder" => "{{service_text}}",
+                "description" => "Rich text description of the service (WYSIWYG).",
+                "source" => "Service",
+            ],
+            [
+                "placeholder" => "{{service_image}}",
+                "description" => "The service's uploaded image. Renders as an <code>&lt;img&gt;</code> tag in templates.",
+                "source" => "Service",
+            ],
+            [
+                "placeholder" => "{{location_text}}",
+                "description" => "General rich text description of the location (WYSIWYG).",
+                "source" => "Location",
+            ],
+            [
+                "placeholder" => "{{location_for_service_text}}",
+                "description" => "Rich text for the current service within this location (WYSIWYG, one per service).",
+                "source" => "Location",
+            ],
+        ];
+    }
+
+    public function render_placeholder_table($placeholders): void
+    {
+        foreach ($placeholders as $item) {
+            echo '<div class="vpg-placeholder-item" style="margin-bottom: 10px; padding: 8px; background: #f6f7f9; border-radius: 4px;">';
+            echo '<code style="font-size: 13px;">' . esc_html($item["placeholder"]) . '</code>';
+            echo '<p style="margin: 4px 0 0 0; font-size: 12px; color: #646970;">' . $item["description"] . '</p>';
+            echo '<span style="font-size: 11px; color: #8c8f94;">From: ' . esc_html($item["source"]) . '</span>';
+            echo '</div>';
+        }
     }
 
     public function render_location_text_meta_box($post): void
