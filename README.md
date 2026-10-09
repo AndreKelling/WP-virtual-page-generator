@@ -12,7 +12,7 @@ Tested these plugins but none was sufficient for my use-case:
 
 ## Created with
 
-Junie (JetBrains) and Gemini 3.7 Flash Model
+Junie (JetBrains) and Gemini 3.7 Flash Model & Lite (Junie)
 
 ## Features
 
