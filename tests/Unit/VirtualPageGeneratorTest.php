@@ -12,14 +12,34 @@ require_once __DIR__ . '/../../includes/class-virtual-page-generator.php';
 
 beforeEach(function () {
     mock_wp_functions();
-    global $registered_rules, $mock_posts, $mock_counts, $mock_query_vars, $mock_located_templates, $mock_post_meta;
+    global $registered_rules, $mock_posts, $mock_counts, $mock_query_vars, $mock_located_templates, $mock_post_meta, $mock_registered_blocks, $mock_registered_scripts;
     $registered_rules = [];
     $mock_posts = [];
     $mock_counts = [];
     $mock_query_vars = [];
     $mock_located_templates = [];
     $mock_post_meta = [];
+    $mock_registered_blocks = [];
+    $mock_registered_scripts = [];
     Generator::reset_instance();
+});
+
+test('register_blocks registers both blocks with api_version 3 and correct script dependencies', function () {
+    global $mock_registered_blocks, $mock_registered_scripts;
+
+    $generator = Generator::get_instance();
+    $generator->register_blocks();
+
+    expect($mock_registered_scripts)->toHaveKey('vpg-block-js');
+    expect($mock_registered_scripts['vpg-block-js']['deps'])->toContain('wp-block-editor');
+
+    expect($mock_registered_blocks)->toHaveKey('vpg/services-by-location');
+    expect($mock_registered_blocks['vpg/services-by-location']['api_version'])->toBe(3);
+    expect($mock_registered_blocks['vpg/services-by-location']['attributes'])->toHaveKeys(['locationId', 'templateId']);
+
+    expect($mock_registered_blocks)->toHaveKey('vpg/locations-by-service');
+    expect($mock_registered_blocks['vpg/locations-by-service']['api_version'])->toBe(3);
+    expect($mock_registered_blocks['vpg/locations-by-service']['attributes'])->toHaveKeys(['serviceId', 'templateId']);
 });
 
 test('render_service_list_block generates links with replaced template title', function () {
@@ -51,6 +71,81 @@ test('render_service_list_block generates links with replaced template title', f
     ]);
 
     expect($html)->toBe('<ul class="vpg-service-list"><li><a href="http://example.com/mowing-in-berlin/">Mowing in Berlin</a></li></ul>');
+});
+
+test('render_location_list_block generates links with replaced template title', function () {
+    global $mock_posts;
+
+    $template = new WP_Post();
+    $template->ID = 10;
+    $template->post_title = '{{service}} in {{location}}';
+    $template->post_type = 'vpg_template';
+
+    $location = new WP_Post();
+    $location->ID = 20;
+    $location->post_title = 'Berlin';
+    $location->post_name = 'berlin';
+    $location->post_type = 'vpg_location';
+
+    $location2 = new WP_Post();
+    $location2->ID = 21;
+    $location2->post_title = 'Munich';
+    $location2->post_name = 'munich';
+    $location2->post_type = 'vpg_location';
+
+    $service = new WP_Post();
+    $service->ID = 30;
+    $service->post_title = 'Mowing';
+    $service->post_name = 'mowing';
+    $service->post_type = 'vpg_service';
+
+    $mock_posts = [$template, $location, $location2, $service];
+
+    $generator = Generator::get_instance();
+    $html = $generator->render_location_list_block([
+        'serviceId' => '30',
+        'templateId' => '10',
+    ]);
+
+    expect($html)->toContain('<ul class="vpg-location-list">')
+                 ->toContain('<a href="http://example.com/mowing-in-berlin/">Mowing in Berlin</a>')
+                 ->toContain('<a href="http://example.com/mowing-in-munich/">Mowing in Munich</a>');
+});
+
+test('render_location_list_block returns message when service or template is missing', function () {
+    $generator = Generator::get_instance();
+    $html = $generator->render_location_list_block([
+        'serviceId' => '',
+        'templateId' => '',
+    ]);
+
+    expect($html)->toBe('<p>Please select a service and template in the block settings.</p>');
+});
+
+test('render_location_list_block returns message when no locations found', function () {
+    global $mock_posts;
+    $mock_posts = [];
+
+    $service = new WP_Post();
+    $service->ID = 30;
+    $service->post_title = 'Mowing';
+    $service->post_name = 'mowing';
+    $service->post_type = 'vpg_service';
+
+    $template = new WP_Post();
+    $template->ID = 10;
+    $template->post_title = '{{service}} in {{location}}';
+    $template->post_type = 'vpg_template';
+
+    $mock_posts = [$service, $template];
+
+    $generator = Generator::get_instance();
+    $html = $generator->render_location_list_block([
+        'serviceId' => '30',
+        'templateId' => '10',
+    ]);
+
+    expect($html)->toBe('<p>No locations found.</p>');
 });
 
 test('add_to_tsf_sitemap adds virtual urls with correct lastmod', function () {

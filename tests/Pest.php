@@ -280,6 +280,32 @@ function mock_wp_functions() {
             return '';
         }
     }
+
+    if (!function_exists('wp_register_script')) {
+        function wp_register_script($handle, $src, $deps = [], $ver = false, $in_footer = false) {
+            global $mock_registered_scripts;
+            $mock_registered_scripts[$handle] = [
+                'src' => $src,
+                'deps' => $deps,
+                'ver' => $ver,
+            ];
+            return true;
+        }
+    }
+
+    if (!function_exists('plugins_url')) {
+        function plugins_url($path = '', $plugin = '') {
+            return 'http://example.com/wp-content/plugins/virtual-page-generator/' . ltrim($path, '/');
+        }
+    }
+
+    if (!function_exists('register_block_type')) {
+        function register_block_type($block_type, $args = []) {
+            global $mock_registered_blocks;
+            $mock_registered_blocks[$block_type] = $args;
+            return true;
+        }
+    }
 }
 
 mock_wp_functions();

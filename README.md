@@ -25,7 +25,7 @@ Junie (JetBrains) and Gemini 3.7 Flash Model & Lite (Junie)
 - **Sitemap Integration**: Full support for WordPress Core Sitemaps and The SEO Framework (TSF).
 - **Admin Overview**: A dedicated dashboard to view all generated URLs.
 - **Link Integration**: Search and add virtual pages directly in the Gutenberg block editor's link picker.
-- **Service List Block**: A Gutenberg block to list all services as links for a selected location.
+- **Gutenberg Blocks**: Two custom blocks to list services or locations as links to virtual pages.
 
 ## How It Works
 
@@ -177,12 +177,25 @@ Visit **Page Generator > Generated Pages** to see a full list of all active virt
 
 You can easily link to virtual pages within the Gutenberg editor. When you use the link picker, simply type the name of a Service or Location. The generated virtual pages will appear in the search results, allowing you to select them just like any regular post or page.
 
-## Gutenberg Block: Services by Location
+## Gutenberg Blocks
 
-The plugin provides a custom Gutenberg block called **VPG Services by Location**.
-- You can find it in the block inserter under the **Widgets** category.
-- In the block settings (sidebar), you can select a **Location** and a **Page Template**.
-- The block will automatically render a list of links to all Services for that specific Location, using the selected Template's URL structure.
+The plugin provides two custom Gutenberg blocks (built with Gutenberg API version 3), both found in the block inserter under the **Widgets** category. Both blocks use `useBlockProps()` in the editor and dynamic server-side rendering via PHP with `get_block_wrapper_attributes()`.
+
+### VPG Services by Location
+
+This block lists all **Services** as links for a selected Location.
+- **Block Name**: `vpg/services-by-location`
+- In the block settings (sidebar), select a **Location** and a **Page Template**.
+- The block renders a list of links to all Services for that Location, using the selected Template's URL structure.
+- Output uses the CSS class `vpg-service-list`.
+
+### VPG Locations by Service
+
+This block lists all **Locations** as links for a selected Service.
+- **Block Name**: `vpg/locations-by-service`
+- In the block settings (sidebar), select a **Service** and a **Page Template**.
+- The block renders a list of links to all Locations for that Service, using the selected Template's URL structure.
+- Output uses the CSS class `vpg-location-list`.
 
 ## Architecture
 

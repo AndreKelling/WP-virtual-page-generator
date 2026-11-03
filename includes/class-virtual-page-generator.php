@@ -355,18 +355,38 @@ class VirtualPageGenerator
 
     public function register_blocks(): void
     {
+        $block_file = $this->plugin_path . "assets/js/block.js";
+        $version = file_exists($block_file) ? filemtime($block_file) : false;
+
         wp_register_script(
             "vpg-block-js",
             plugins_url("assets/js/block.js", $this->plugin_file),
-            ["wp-blocks", "wp-element", "wp-components", "wp-data"],
-            filemtime($this->plugin_path . "assets/js/block.js"),
+            ["wp-blocks", "wp-element", "wp-components", "wp-data", "wp-block-editor"],
+            $version,
         );
 
-        register_block_type("vpg/service-list", [
+        register_block_type("vpg/services-by-location", [
+            "api_version" => 3,
             "editor_script" => "vpg-block-js",
             "render_callback" => [$this, "render_service_list_block"],
             "attributes" => [
                 "locationId" => [
+                    "type" => "string",
+                    "default" => "",
+                ],
+                "templateId" => [
+                    "type" => "string",
+                    "default" => "",
+                ],
+            ],
+        ]);
+
+        register_block_type("vpg/locations-by-service", [
+            "api_version" => 3,
+            "editor_script" => "vpg-block-js",
+            "render_callback" => [$this, "render_location_list_block"],
+            "attributes" => [
+                "serviceId" => [
                     "type" => "string",
                     "default" => "",
                 ],
@@ -405,8 +425,67 @@ class VirtualPageGenerator
             return "<p>No services found.</p>";
         }
 
-        $output = '<ul class="vpg-service-list">';
+        $wrapper_attributes = function_exists("get_block_wrapper_attributes")
+            ? get_block_wrapper_attributes(["class" => "vpg-service-list"])
+            : 'class="vpg-service-list"';
+
+        $output = '<ul ' . $wrapper_attributes . '>';
         foreach ($services as $service) {
+            $url = $this->rewrite->get_virtual_url(
+                $template,
+                $service->post_name,
+                $location->post_name,
+            );
+            $title = str_replace(
+                ["{{service}}", "{{location}}"],
+                [$service->post_title, $location->post_title],
+                $template->post_title,
+            );
+            $output .=
+                '<li><a href="' .
+                esc_url($url) .
+                '">' .
+                esc_html($title) .
+                "</a></li>";
+        }
+        $output .= "</ul>";
+
+        return $output;
+    }
+
+    public function render_location_list_block($attributes): string
+    {
+        $service_id = (int) $attributes["serviceId"];
+        $template_id = (int) $attributes["templateId"];
+
+        if (!$service_id || !$template_id) {
+            return "<p>Please select a service and template in the block settings.</p>";
+        }
+
+        $service = get_post($service_id);
+        $template = get_post($template_id);
+
+        if (!$service || !$template) {
+            return "<p>Selected service or template not found.</p>";
+        }
+
+        $locations = get_posts([
+            "post_type" => "vpg_location",
+            "posts_per_page" => -1,
+            "orderby" => "title",
+            "order" => "ASC",
+        ]);
+
+        if (empty($locations)) {
+            return "<p>No locations found.</p>";
+        }
+
+        $wrapper_attributes = function_exists("get_block_wrapper_attributes")
+            ? get_block_wrapper_attributes(["class" => "vpg-location-list"])
+            : 'class="vpg-location-list"';
+
+        $output = '<ul ' . $wrapper_attributes . '>';
+        foreach ($locations as $location) {
             $url = $this->rewrite->get_virtual_url(
                 $template,
                 $service->post_name,
