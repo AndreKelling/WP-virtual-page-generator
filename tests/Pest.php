@@ -306,6 +306,14 @@ function mock_wp_functions() {
             return true;
         }
     }
+
+    if (!function_exists('register_post_type')) {
+        function register_post_type($post_type, $args = []) {
+            global $mock_registered_post_types;
+            $mock_registered_post_types[$post_type] = $args;
+            return true;
+        }
+    }
 }
 
 mock_wp_functions();

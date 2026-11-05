@@ -12,7 +12,7 @@ require_once __DIR__ . '/../../includes/class-virtual-page-generator.php';
 
 beforeEach(function () {
     mock_wp_functions();
-    global $registered_rules, $mock_posts, $mock_counts, $mock_query_vars, $mock_located_templates, $mock_post_meta, $mock_registered_blocks, $mock_registered_scripts;
+    global $registered_rules, $mock_posts, $mock_counts, $mock_query_vars, $mock_located_templates, $mock_post_meta, $mock_registered_blocks, $mock_registered_scripts, $mock_registered_post_types;
     $registered_rules = [];
     $mock_posts = [];
     $mock_counts = [];
@@ -21,7 +21,24 @@ beforeEach(function () {
     $mock_post_meta = [];
     $mock_registered_blocks = [];
     $mock_registered_scripts = [];
+    $mock_registered_post_types = [];
     Generator::reset_instance();
+});
+
+test('register_post_types hides all VPG post types from navigation menus', function () {
+    global $mock_registered_post_types;
+
+    $generator = Generator::get_instance();
+    $generator->register_post_types();
+
+    expect($mock_registered_post_types)->toHaveKey('vpg_service');
+    expect($mock_registered_post_types['vpg_service']['show_in_nav_menus'])->toBeFalse();
+
+    expect($mock_registered_post_types)->toHaveKey('vpg_location');
+    expect($mock_registered_post_types['vpg_location']['show_in_nav_menus'])->toBeFalse();
+
+    expect($mock_registered_post_types)->toHaveKey('vpg_template');
+    expect($mock_registered_post_types['vpg_template']['show_in_nav_menus'])->toBeFalse();
 });
 
 test('register_blocks registers both blocks with api_version 3 and correct script dependencies', function () {
