@@ -539,28 +539,29 @@ class VirtualPageGenerator
             ? get_block_wrapper_attributes(["class" => "vpg-location-list"])
             : 'class="vpg-location-list"';
 
-        $output = '<ul ' . $wrapper_attributes . '>';
+        $links = [];
         foreach ($locations as $location) {
             $url = $this->rewrite->get_virtual_url(
                 $template,
                 $service->post_name,
                 $location->post_name,
             );
-            $title = str_replace(
-                ["{{service}}", "{{location}}"],
-                [$service->post_title, $location->post_title],
-                $template->post_title,
-            );
-            $output .=
-                '<li><a href="' .
+            $links[] =
+                '<a href="' .
                 esc_url($url) .
                 '">' .
-                esc_html($title) .
-                "</a></li>";
+                esc_html($location->post_title) .
+                '</a>';
         }
-        $output .= "</ul>";
 
-        return $output;
+        if (count($links) === 1) {
+            $list_content = $links[0];
+        } else {
+            $last_link = array_pop($links);
+            $list_content = implode(", ", $links) . " und " . $last_link;
+        }
+
+        return '<div ' . $wrapper_attributes . '>' . $list_content . '</div>';
     }
 
     // ========================================================================

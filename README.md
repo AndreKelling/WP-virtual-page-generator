@@ -194,7 +194,7 @@ This block lists all **Services** as links for a selected Location.
 This block lists all **Locations** as links for a selected Service.
 - **Block Name**: `vpg/locations-by-service`
 - In the block settings, choose a **Service** (a specific Service post or the `{{service}}` placeholder for Page Templates) and a **Page Template**.
-- The block renders a list of links to all Locations for that Service, using the selected Template's URL structure.
+- The block renders a comma-separated list of links to all Locations for that Service (with the German conjunction "und" before the last item), using the selected Template's URL structure.
 - Output uses the CSS class `vpg-location-list`.
 
 ## Architecture

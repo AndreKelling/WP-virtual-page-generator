@@ -161,7 +161,7 @@ test('render_service_list_block returns message when location and template are m
     expect($html)->toBe('<p>Please select a location and template in the block settings.</p>');
 });
 
-test('render_location_list_block generates links with replaced template title', function () {
+test('render_location_list_block generates comma separated links with und for last item', function () {
     global $mock_posts;
 
     $template = new WP_Post();
@@ -169,11 +169,11 @@ test('render_location_list_block generates links with replaced template title', 
     $template->post_title = '{{service}} in {{location}}';
     $template->post_type = 'vpg_template';
 
-    $location = new WP_Post();
-    $location->ID = 20;
-    $location->post_title = 'Berlin';
-    $location->post_name = 'berlin';
-    $location->post_type = 'vpg_location';
+    $location1 = new WP_Post();
+    $location1->ID = 20;
+    $location1->post_title = 'Berlin';
+    $location1->post_name = 'berlin';
+    $location1->post_type = 'vpg_location';
 
     $location2 = new WP_Post();
     $location2->ID = 21;
@@ -181,23 +181,47 @@ test('render_location_list_block generates links with replaced template title', 
     $location2->post_name = 'munich';
     $location2->post_type = 'vpg_location';
 
+    $location3 = new WP_Post();
+    $location3->ID = 22;
+    $location3->post_title = 'Hamburg';
+    $location3->post_name = 'hamburg';
+    $location3->post_type = 'vpg_location';
+
     $service = new WP_Post();
     $service->ID = 30;
     $service->post_title = 'Mowing';
     $service->post_name = 'mowing';
     $service->post_type = 'vpg_service';
 
-    $mock_posts = [$template, $location, $location2, $service];
-
+    // 1 location
+    $mock_posts = [$template, $location1, $service];
     $generator = Generator::get_instance();
-    $html = $generator->render_location_list_block([
+    $html1 = $generator->render_location_list_block([
         'serviceId' => '30',
         'templateId' => '10',
     ]);
+    expect($html1)->toBe('<div class="vpg-location-list"><a href="http://example.com/mowing-in-berlin/">Berlin</a></div>');
 
-    expect($html)->toContain('<ul class="vpg-location-list">')
-                 ->toContain('<a href="http://example.com/mowing-in-berlin/">Mowing in Berlin</a>')
-                 ->toContain('<a href="http://example.com/mowing-in-munich/">Mowing in Munich</a>');
+    // 2 locations
+    $mock_posts = [$template, $location1, $location2, $service];
+    $html2 = $generator->render_location_list_block([
+        'serviceId' => '30',
+        'templateId' => '10',
+    ]);
+    $expected2 = '<div class="vpg-location-list"><a href="http://example.com/mowing-in-berlin/">Berlin</a> '
+        . 'und <a href="http://example.com/mowing-in-munich/">Munich</a></div>';
+    expect($html2)->toBe($expected2);
+
+    // 3 locations
+    $mock_posts = [$template, $location1, $location2, $location3, $service];
+    $html3 = $generator->render_location_list_block([
+        'serviceId' => '30',
+        'templateId' => '10',
+    ]);
+    $expected3 = '<div class="vpg-location-list"><a href="http://example.com/mowing-in-berlin/">Berlin</a>, '
+        . '<a href="http://example.com/mowing-in-munich/">Munich</a> '
+        . 'und <a href="http://example.com/mowing-in-hamburg/">Hamburg</a></div>';
+    expect($html3)->toBe($expected3);
 });
 
 test('render_location_list_block resolves service by dynamic replaced title in serviceId', function () {
@@ -228,8 +252,7 @@ test('render_location_list_block resolves service by dynamic replaced title in s
         'templateId' => '10',
     ]);
 
-    expect($html)->toContain('<ul class="vpg-location-list">')
-                 ->toContain('<a href="http://example.com/mowing-in-berlin/">Mowing in Berlin</a>');
+    expect($html)->toBe('<div class="vpg-location-list"><a href="http://example.com/mowing-in-berlin/">Berlin</a></div>');
 });
 
 test('render_location_list_block returns message when service or template is missing', function () {
