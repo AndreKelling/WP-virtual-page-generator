@@ -90,6 +90,77 @@ test('render_service_list_block generates links with replaced template title', f
     expect($html)->toBe('<ul class="vpg-service-list"><li><a href="http://example.com/mowing-in-berlin/">Mowing in Berlin</a></li></ul>');
 });
 
+test('render_service_list_block resolves location by dynamic replaced title in locationId', function () {
+    global $mock_posts;
+
+    $template = new WP_Post();
+    $template->ID = 10;
+    $template->post_title = '{{service}} in {{location}}';
+    $template->post_type = 'vpg_template';
+
+    $location = new WP_Post();
+    $location->ID = 20;
+    $location->post_title = 'Berlin';
+    $location->post_name = 'berlin';
+    $location->post_type = 'vpg_location';
+
+    $service = new WP_Post();
+    $service->ID = 30;
+    $service->post_title = 'Mowing';
+    $service->post_name = 'mowing';
+    $service->post_type = 'vpg_service';
+
+    $mock_posts = [$template, $location, $service];
+
+    $generator = Generator::get_instance();
+    $html = $generator->render_service_list_block([
+        'locationId' => 'Berlin',
+        'templateId' => '10',
+    ]);
+
+    expect($html)->toBe('<ul class="vpg-service-list"><li><a href="http://example.com/mowing-in-berlin/">Mowing in Berlin</a></li></ul>');
+});
+
+test('render_service_list_block returns not found message when locationId is placeholder or non-existent', function () {
+    global $mock_posts;
+
+    $template = new WP_Post();
+    $template->ID = 10;
+    $template->post_title = '{{service}} in {{location}}';
+    $template->post_type = 'vpg_template';
+
+    $service = new WP_Post();
+    $service->ID = 30;
+    $service->post_title = 'Mowing';
+    $service->post_name = 'mowing';
+    $service->post_type = 'vpg_service';
+
+    $mock_posts = [$template, $service];
+
+    $generator = Generator::get_instance();
+    $htmlPlaceholder = $generator->render_service_list_block([
+        'locationId' => '{{location}}',
+        'templateId' => '10',
+    ]);
+    expect($htmlPlaceholder)->toBe('<p>Selected location or template not found.</p>');
+
+    $htmlNonExistent = $generator->render_service_list_block([
+        'locationId' => 'NonExistentCity',
+        'templateId' => '10',
+    ]);
+    expect($htmlNonExistent)->toBe('<p>Selected location or template not found.</p>');
+});
+
+test('render_service_list_block returns message when location and template are missing', function () {
+    $generator = Generator::get_instance();
+    $html = $generator->render_service_list_block([
+        'locationId' => '',
+        'templateId' => '',
+    ]);
+
+    expect($html)->toBe('<p>Please select a location and template in the block settings.</p>');
+});
+
 test('render_location_list_block generates links with replaced template title', function () {
     global $mock_posts;
 
@@ -127,6 +198,38 @@ test('render_location_list_block generates links with replaced template title', 
     expect($html)->toContain('<ul class="vpg-location-list">')
                  ->toContain('<a href="http://example.com/mowing-in-berlin/">Mowing in Berlin</a>')
                  ->toContain('<a href="http://example.com/mowing-in-munich/">Mowing in Munich</a>');
+});
+
+test('render_location_list_block resolves service by dynamic replaced title in serviceId', function () {
+    global $mock_posts;
+
+    $template = new WP_Post();
+    $template->ID = 10;
+    $template->post_title = '{{service}} in {{location}}';
+    $template->post_type = 'vpg_template';
+
+    $location = new WP_Post();
+    $location->ID = 20;
+    $location->post_title = 'Berlin';
+    $location->post_name = 'berlin';
+    $location->post_type = 'vpg_location';
+
+    $service = new WP_Post();
+    $service->ID = 30;
+    $service->post_title = 'Mowing';
+    $service->post_name = 'mowing';
+    $service->post_type = 'vpg_service';
+
+    $mock_posts = [$template, $location, $service];
+
+    $generator = Generator::get_instance();
+    $html = $generator->render_location_list_block([
+        'serviceId' => 'Mowing',
+        'templateId' => '10',
+    ]);
+
+    expect($html)->toContain('<ul class="vpg-location-list">')
+                 ->toContain('<a href="http://example.com/mowing-in-berlin/">Mowing in Berlin</a>');
 });
 
 test('render_location_list_block returns message when service or template is missing', function () {

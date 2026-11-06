@@ -32,7 +32,10 @@
                 return select( 'core' ).getEntityRecords( 'postType', 'vpg_template', { per_page: -1 } );
             } );
 
-            const locationOptions = [ { label: 'Select a Location', value: '' } ];
+            const locationOptions = [
+                { label: 'Select a Location', value: '' },
+                { label: '{{location}}', value: '{{location}}' }
+            ];
             if ( locations ) {
                 locations.forEach( function( location ) {
                     locationOptions.push( { label: location.title.rendered, value: location.id.toString() } );
@@ -101,7 +104,10 @@
                 return select( 'core' ).getEntityRecords( 'postType', 'vpg_template', { per_page: -1 } );
             } );
 
-            const serviceOptions = [ { label: 'Select a Service', value: '' } ];
+            const serviceOptions = [
+                { label: 'Select a Service', value: '' },
+                { label: '{{service}}', value: '{{service}}' }
+            ];
             if ( services ) {
                 services.forEach( function( service ) {
                     serviceOptions.push( { label: service.title.rendered, value: service.id.toString() } );

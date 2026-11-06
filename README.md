@@ -185,7 +185,7 @@ The plugin provides two custom Gutenberg blocks (built with Gutenberg API versio
 
 This block lists all **Services** as links for a selected Location.
 - **Block Name**: `vpg/services-by-location`
-- In the block settings (sidebar), select a **Location** and a **Page Template**.
+- In the block settings, choose a **Location** (a specific Location post or the `{{location}}` placeholder for Page Templates) and a **Page Template**.
 - The block renders a list of links to all Services for that Location, using the selected Template's URL structure.
 - Output uses the CSS class `vpg-service-list`.
 
@@ -193,7 +193,7 @@ This block lists all **Services** as links for a selected Location.
 
 This block lists all **Locations** as links for a selected Service.
 - **Block Name**: `vpg/locations-by-service`
-- In the block settings (sidebar), select a **Service** and a **Page Template**.
+- In the block settings, choose a **Service** (a specific Service post or the `{{service}}` placeholder for Page Templates) and a **Page Template**.
 - The block renders a list of links to all Locations for that Service, using the selected Template's URL structure.
 - Output uses the CSS class `vpg-location-list`.
 

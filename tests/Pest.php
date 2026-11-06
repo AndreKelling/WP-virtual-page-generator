@@ -148,11 +148,15 @@ function mock_wp_functions() {
             
             $type = $args['post_type'] ?? 'post';
             $name = $args['name'] ?? null;
-            return array_values(array_filter($mock_posts, function($post) use ($type, $name) {
+            $title = $args['title'] ?? null;
+            return array_values(array_filter($mock_posts, function($post) use ($type, $name, $title) {
                 if (($post->post_type ?? 'post') !== $type) {
                     return false;
                 }
                 if ($name !== null && ($post->post_name ?? '') !== $name) {
+                    return false;
+                }
+                if ($title !== null && ($post->post_title ?? '') !== $title) {
                     return false;
                 }
                 return true;

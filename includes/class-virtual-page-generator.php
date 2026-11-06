@@ -403,14 +403,40 @@ class VirtualPageGenerator
 
     public function render_service_list_block($attributes): string
     {
-        $location_id = (int) $attributes["locationId"];
-        $template_id = (int) $attributes["templateId"];
+        $location_val = !empty($attributes["locationId"]) ? trim((string) $attributes["locationId"]) : "";
+        $template_id = !empty($attributes["templateId"]) ? (int) $attributes["templateId"] : 0;
 
-        if (!$location_id || !$template_id) {
+        if ($location_val === "" || !$template_id) {
             return "<p>Please select a location and template in the block settings.</p>";
         }
 
-        $location = get_post($location_id);
+        $location = null;
+        if (is_numeric($location_val)) {
+            $loc = get_post((int) $location_val);
+            if ($loc && $loc->post_type === "vpg_location") {
+                $location = $loc;
+            }
+        } elseif ($location_val !== "{{location}}") {
+            $matching_locations = get_posts([
+                "post_type" => "vpg_location",
+                "title" => $location_val,
+                "posts_per_page" => 1,
+            ]);
+            if (!empty($matching_locations)) {
+                $location = $matching_locations[0];
+            }
+            if (empty($location)) {
+                $matching_locations = get_posts([
+                    "post_type" => "vpg_location",
+                    "name" => sanitize_title($location_val),
+                    "posts_per_page" => 1,
+                ]);
+                if (!empty($matching_locations)) {
+                    $location = $matching_locations[0];
+                }
+            }
+        }
+
         $template = get_post($template_id);
 
         if (!$location || !$template) {
@@ -458,14 +484,40 @@ class VirtualPageGenerator
 
     public function render_location_list_block($attributes): string
     {
-        $service_id = (int) $attributes["serviceId"];
-        $template_id = (int) $attributes["templateId"];
+        $service_val = !empty($attributes["serviceId"]) ? trim((string) $attributes["serviceId"]) : "";
+        $template_id = !empty($attributes["templateId"]) ? (int) $attributes["templateId"] : 0;
 
-        if (!$service_id || !$template_id) {
+        if ($service_val === "" || !$template_id) {
             return "<p>Please select a service and template in the block settings.</p>";
         }
 
-        $service = get_post($service_id);
+        $service = null;
+        if (is_numeric($service_val)) {
+            $svc = get_post((int) $service_val);
+            if ($svc && $svc->post_type === "vpg_service") {
+                $service = $svc;
+            }
+        } elseif ($service_val !== "{{service}}") {
+            $matching_services = get_posts([
+                "post_type" => "vpg_service",
+                "title" => $service_val,
+                "posts_per_page" => 1,
+            ]);
+            if (!empty($matching_services)) {
+                $service = $matching_services[0];
+            }
+            if (empty($service)) {
+                $matching_services = get_posts([
+                    "post_type" => "vpg_service",
+                    "name" => sanitize_title($service_val),
+                    "posts_per_page" => 1,
+                ]);
+                if (!empty($matching_services)) {
+                    $service = $matching_services[0];
+                }
+            }
+        }
+
         $template = get_post($template_id);
 
         if (!$service || !$template) {
