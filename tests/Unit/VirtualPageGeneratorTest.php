@@ -400,6 +400,59 @@ test('get_page_data delegates to VPG_Page_Data and exposes helper functions', fu
     // Test helper functions delegate correctly
     expect(vpg_get_page_data())->toBe($data);
     expect(vpg_get_virtual_page_data())->toBe($data);
+    expect(vpg_get_canonical_url())->toBe('http://example.com/mowing-in-berlin/');
+});
+
+test('output_canonical_url echoes canonical link tag for virtual pages', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'canonical_url' => 'http://example.com/mowing-in-berlin/',
+    ]);
+
+    ob_start();
+    $generator->output_canonical_url();
+    $output = ob_get_clean();
+
+    expect($output)->toBe('<link rel="canonical" href="http://example.com/mowing-in-berlin/" />' . "\n");
+});
+
+test('output_canonical_url outputs nothing when not on a virtual page', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data(null);
+
+    ob_start();
+    $generator->output_canonical_url();
+    $output = ob_get_clean();
+
+    expect($output)->toBe('');
+});
+
+test('filter_canonical_url returns virtual page canonical URL when active', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'canonical_url' => 'http://example.com/mowing-in-berlin/',
+    ]);
+
+    $url = $generator->filter_canonical_url('http://example.com/original-url/');
+    expect($url)->toBe('http://example.com/mowing-in-berlin/');
+
+    $generator->set_page_data(null);
+    $urlFallback = $generator->filter_canonical_url('http://example.com/original-url/');
+    expect($urlFallback)->toBe('http://example.com/original-url/');
+});
+
+test('filter_tsf_canonical_url returns virtual page canonical URL when active', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'canonical_url' => 'http://example.com/mowing-in-berlin/',
+    ]);
+
+    $url = $generator->filter_tsf_canonical_url('http://example.com/tsf-url/');
+    expect($url)->toBe('http://example.com/mowing-in-berlin/');
+
+    $generator->set_page_data(null);
+    $urlFallback = $generator->filter_tsf_canonical_url('http://example.com/tsf-url/');
+    expect($urlFallback)->toBe('http://example.com/tsf-url/');
 });
 
 test('set_page_data allows manual override', function () {

@@ -24,7 +24,7 @@ class VPG_Page_Data
 
     public function __construct(?VPG_Rewrite $rewrite = null)
     {
-        $this->rewrite = $rewrite;
+        $this->rewrite = $rewrite ?? new VPG_Rewrite();
     }
 
     /**
@@ -176,6 +176,14 @@ class VPG_Page_Data
             $service_image_html
         );
 
+        $canonical_url = $this->rewrite
+            ? $this->rewrite->get_virtual_url(
+                $template,
+                $service->post_name,
+                $location->post_name,
+            )
+            : null;
+
         return [
             "service" => $service,
             "location" => $location,
@@ -188,6 +196,8 @@ class VPG_Page_Data
             "service_text" => $service_text,
             "service_image_id" => $service_image_id,
             "service_image_html" => $service_image_html,
+            "canonical_url" => $canonical_url,
+            "url" => $canonical_url,
         ];
     }
 

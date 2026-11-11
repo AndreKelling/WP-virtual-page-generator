@@ -61,10 +61,18 @@ class VirtualPageGenerator
         add_action("init", [$this, "register_post_types"]);
         add_action("admin_menu", [$this, "add_admin_menu"]);
         add_filter("template_include", [$this, "handle_virtual_page"]);
+        add_action("wp_head", [$this, "output_canonical_url"]);
+        add_filter("get_canonical_url", [$this, "filter_canonical_url"], 10, 2);
         add_action("wp_sitemaps_init", [$this, "init_sitemaps"]);
         add_filter(
             "the_seo_framework_sitemap_additional_urls",
             [$this, "add_to_tsf_sitemap"],
+            10,
+            2,
+        );
+        add_filter(
+            "the_seo_framework_canonical_url",
+            [$this, "filter_tsf_canonical_url"],
             10,
             2,
         );
@@ -269,6 +277,55 @@ class VirtualPageGenerator
         }
 
         return $template;
+    }
+
+    // ========================================================================
+    // Canonical URL & SEO
+    // ========================================================================
+
+    /**
+     * Output canonical link tag in wp_head for virtual pages.
+     */
+    public function output_canonical_url(): void
+    {
+        $data = $this->get_page_data();
+        if (empty($data) || empty($data["canonical_url"])) {
+            return;
+        }
+
+        echo '<link rel="canonical" href="' . esc_url($data["canonical_url"]) . '" />' . "\n";
+    }
+
+    /**
+     * Filter the canonical URL for virtual pages.
+     *
+     * @param string $canonical_url
+     * @param WP_Post|int|null $post
+     * @return string
+     */
+    public function filter_canonical_url($canonical_url, $post = null)
+    {
+        $data = $this->get_page_data();
+        if (!empty($data) && !empty($data["canonical_url"])) {
+            return $data["canonical_url"];
+        }
+        return $canonical_url;
+    }
+
+    /**
+     * Filter The SEO Framework canonical URL for virtual pages.
+     *
+     * @param string $url
+     * @param int $id
+     * @return string
+     */
+    public function filter_tsf_canonical_url($url = "", $id = 0)
+    {
+        $data = $this->get_page_data();
+        if (!empty($data) && !empty($data["canonical_url"])) {
+            return $data["canonical_url"];
+        }
+        return $url;
     }
 
     // ========================================================================
@@ -646,5 +703,18 @@ if (!function_exists("vpg_get_virtual_page_data")) {
     function vpg_get_virtual_page_data(): ?array
     {
         return VirtualPageGenerator::get_instance()?->get_page_data();
+    }
+}
+
+if (!function_exists("vpg_get_canonical_url")) {
+    /**
+     * Retrieve canonical URL for the current virtual page.
+     *
+     * @return string|null
+     */
+    function vpg_get_canonical_url(): ?string
+    {
+        $data = vpg_get_page_data();
+        return $data["canonical_url"] ?? null;
     }
 }

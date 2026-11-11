@@ -64,6 +64,8 @@ test('get_page_data returns structured data with replaced placeholders including
     expect($data['location_for_service_text'])->toBe('<p>Best mowing team in Berlin.</p>');
     expect($data['service_text'])->toBe('<p>Comprehensive professional mowing services.</p>');
     expect($data['service_image_id'])->toBe(99);
+    expect($data['canonical_url'])->toBe('http://example.com/mowing-in-berlin/');
+    expect($data['url'])->toBe('http://example.com/mowing-in-berlin/');
     expect($data['content'])->toContain('We offer Mowing in Berlin.')
                             ->toContain('<p>Welcome to Berlin.</p>')
                             ->toContain('<p>Best mowing team in Berlin.</p>')

@@ -154,6 +154,14 @@ get_footer();
 | `service_text` | `string` | Rich text from the Service's `service_text` field. |
 | `service_image_id` | `int\|null` | Service attachment image ID (or null). |
 | `service_image_html` | `string` | Rendered HTML image tag for the service image. |
+| `canonical_url` / `url` | `string\|null` | Fully-resolved canonical URL for the generated virtual page. |
+
+## Canonical URL & SEO Integration
+
+The plugin automatically handles search engine canonicalization for virtual pages:
+- **`wp_head` Output**: Injects `<link rel="canonical" href="...">` directly into the document `<head>` on generated virtual pages.
+- **Filter Integration**: Hooks into WordPress core `get_canonical_url` and The SEO Framework's `the_seo_framework_canonical_url` filter.
+- **Helper Function**: `vpg_get_canonical_url()` provides quick access to the canonical URL of the current virtual page.
 
 ## URL Routing
 
