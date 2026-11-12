@@ -65,6 +65,7 @@ class VirtualPageGenerator
         add_filter("document_title_parts", [$this, "filter_document_title_parts"], 10);
         add_filter("wp_title", [$this, "filter_wp_title"], 10, 3);
         add_action("wp_head", [$this, "output_title_tag"], 1);
+        add_action("wp_head", [$this, "output_meta_description"], 2);
         add_action("wp_head", [$this, "output_canonical_url"]);
         add_filter("get_canonical_url", [$this, "filter_canonical_url"], 10, 2);
         add_action("wp_sitemaps_init", [$this, "init_sitemaps"]);
@@ -95,6 +96,36 @@ class VirtualPageGenerator
         add_filter(
             "the_seo_framework_twittertitle_output",
             [$this, "filter_tsf_title"],
+            10,
+            2,
+        );
+        add_filter(
+            "the_seo_framework_description_output",
+            [$this, "filter_tsf_description"],
+            10,
+            2,
+        );
+        add_filter(
+            "the_seo_framework_custom_field_description",
+            [$this, "filter_tsf_description"],
+            10,
+            2,
+        );
+        add_filter(
+            "the_seo_framework_generated_description",
+            [$this, "filter_tsf_description"],
+            10,
+            2,
+        );
+        add_filter(
+            "the_seo_framework_ogdescription_output",
+            [$this, "filter_tsf_description"],
+            10,
+            2,
+        );
+        add_filter(
+            "the_seo_framework_twitterdescription_output",
+            [$this, "filter_tsf_description"],
             10,
             2,
         );
@@ -180,7 +211,7 @@ class VirtualPageGenerator
             "rewrite" => false,
             "show_in_menu" => "vpg-main",
             "show_in_nav_menus" => false,
-            "supports" => ["title", "editor"],
+            "supports" => ["title", "editor", "excerpt"],
             "has_archive" => false,
             "show_in_rest" => true,
         ]);
@@ -398,6 +429,39 @@ class VirtualPageGenerator
             return $data["title"];
         }
         return $title;
+    }
+
+    /**
+     * Output meta description tag in wp_head for virtual pages when no SEO plugin outputs it.
+     */
+    public function output_meta_description(): void
+    {
+        if (function_exists("tsf") || class_exists("The_SEO_Framework\Load") || defined("THE_SEO_FRAMEWORK_VERSION")) {
+            return;
+        }
+
+        $data = $this->get_page_data();
+        if (empty($data) || empty($data["description"])) {
+            return;
+        }
+
+        echo '<meta name="description" content="' . esc_attr($data["description"]) . '" />' . "\n";
+    }
+
+    /**
+     * Filter The SEO Framework description for virtual pages.
+     *
+     * @param string $description
+     * @param mixed $id
+     * @return string
+     */
+    public function filter_tsf_description($description = "", $id = 0)
+    {
+        $data = $this->get_page_data();
+        if (!empty($data) && !empty($data["description"])) {
+            return $data["description"];
+        }
+        return $description;
     }
 
     /**
@@ -833,6 +897,31 @@ if (!function_exists("vpg_get_title")) {
     {
         $data = vpg_get_page_data();
         return $data["title"] ?? null;
+    }
+}
+
+if (!function_exists("vpg_get_description")) {
+    /**
+     * Retrieve meta description for the current virtual page.
+     *
+     * @return string|null
+     */
+    function vpg_get_description(): ?string
+    {
+        $data = vpg_get_page_data();
+        return $data["description"] ?? null;
+    }
+}
+
+if (!function_exists("vpg_get_meta_description")) {
+    /**
+     * Retrieve meta description for the current virtual page.
+     *
+     * @return string|null
+     */
+    function vpg_get_meta_description(): ?string
+    {
+        return vpg_get_description();
     }
 }
 

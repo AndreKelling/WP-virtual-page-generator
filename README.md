@@ -154,18 +154,22 @@ get_footer();
 | `service_text` | `string` | Rich text from the Service's `service_text` field. |
 | `service_image_id` | `int\|null` | Service attachment image ID (or null). |
 | `service_image_html` | `string` | Rendered HTML image tag for the service image. |
+| `description` / `meta_description` | `string` | Resolved meta description (from template excerpt, `_vpg_meta_description`, or trimmed content). |
 | `canonical_url` / `url` | `string\|null` | Fully-resolved canonical URL for the generated virtual page. |
 
-## Title, Canonical URL & SEO Integration
+## Title, Meta Description, Canonical URL & SEO Integration
 
-The plugin automatically handles search engine title tags, meta titles, and canonicalization for virtual pages:
+The plugin automatically handles search engine title tags, meta descriptions, and canonicalization for virtual pages:
 - **`wp_head` Output**:
   - Injects `<title>` tag when the active theme does not declare `title-tag` theme support.
+  - Injects `<meta name="description" content="...">` when no dedicated SEO plugin is rendering it.
   - Injects `<link rel="canonical" href="...">` directly into the document `<head>`.
 - **Title Filters**: Hooks into `pre_get_document_title`, `document_title_parts`, `wp_title`, and The SEO Framework's title filters (`the_seo_framework_title`, `the_seo_framework_pro_title`, `the_seo_framework_title_from_custom_field`, `the_seo_framework_ogtitle_output`, `the_seo_framework_twittertitle_output`) so HTML `<title>` and social meta tags reflect the generated page title.
+- **Meta Description Filters**: Hooks into The SEO Framework's description filters (`the_seo_framework_description_output`, `the_seo_framework_custom_field_description`, `the_seo_framework_generated_description`, `the_seo_framework_ogdescription_output`, `the_seo_framework_twitterdescription_output`).
 - **Canonical URL Filters**: Hooks into WordPress core `get_canonical_url` and The SEO Framework's `the_seo_framework_canonical_url` filter.
 - **Helper Functions**:
   - `vpg_get_title()` provides quick access to the generated title of the current virtual page.
+  - `vpg_get_description()` / `vpg_get_meta_description()` provides quick access to the resolved meta description.
   - `vpg_get_canonical_url()` provides quick access to the canonical URL of the current virtual page.
 
 ## URL Routing

@@ -162,3 +162,85 @@ test('reset clears cached data', function () {
     expect($data1)->not->toBeNull();
     expect($data2)->toBeNull();
 });
+
+test('get_page_data resolves template post_excerpt with replaced placeholders for description', function () {
+    global $mock_posts, $mock_query_vars, $mock_post_meta;
+
+    $template = new WP_Post();
+    $template->ID = 10;
+    $template->post_title = '{{service}} in {{location}}';
+    $template->post_content = 'Main content body';
+    $template->post_excerpt = 'Hier finden Sie {{service}} in {{location}} von Experten.';
+    $template->post_type = 'vpg_template';
+    $template->post_status = 'publish';
+
+    $location = new WP_Post();
+    $location->ID = 20;
+    $location->post_title = 'Berlin';
+    $location->post_name = 'berlin';
+    $location->post_type = 'vpg_location';
+
+    $service = new WP_Post();
+    $service->ID = 30;
+    $service->post_title = 'Rasenpflege';
+    $service->post_name = 'rasenpflege';
+    $service->post_type = 'vpg_service';
+
+    $mock_posts = [$template, $location, $service];
+    $mock_query_vars = [
+        'vpg_service_slug' => 'rasenpflege',
+        'vpg_location_slug' => 'berlin',
+        'vpg_template_id' => '10',
+    ];
+    $mock_post_meta = [];
+
+    $pageData = new VPG_Page_Data();
+    $data = $pageData->get_data();
+
+    expect($data)->not->toBeNull();
+    expect($data['description'])->toBe('Hier finden Sie Rasenpflege in Berlin von Experten.');
+    expect($data['meta_description'])->toBe('Hier finden Sie Rasenpflege in Berlin von Experten.');
+});
+
+test('get_page_data resolves _vpg_meta_description meta when post_excerpt is empty', function () {
+    global $mock_posts, $mock_query_vars, $mock_post_meta;
+
+    $template = new WP_Post();
+    $template->ID = 10;
+    $template->post_title = '{{service}} in {{location}}';
+    $template->post_content = 'Main content body';
+    $template->post_excerpt = '';
+    $template->post_type = 'vpg_template';
+    $template->post_status = 'publish';
+
+    $location = new WP_Post();
+    $location->ID = 20;
+    $location->post_title = 'Hamburg';
+    $location->post_name = 'hamburg';
+    $location->post_type = 'vpg_location';
+
+    $service = new WP_Post();
+    $service->ID = 30;
+    $service->post_title = 'Baumpflege';
+    $service->post_name = 'baumpflege';
+    $service->post_type = 'vpg_service';
+
+    $mock_posts = [$template, $location, $service];
+    $mock_query_vars = [
+        'vpg_service_slug' => 'baumpflege',
+        'vpg_location_slug' => 'hamburg',
+        'vpg_template_id' => '10',
+    ];
+    $mock_post_meta = [
+        10 => [
+            '_vpg_meta_description' => 'Top {{service}} Service direkt in {{location}} buchen.',
+        ],
+    ];
+
+    $pageData = new VPG_Page_Data();
+    $data = $pageData->get_data();
+
+    expect($data)->not->toBeNull();
+    expect($data['description'])->toBe('Top Baumpflege Service direkt in Hamburg buchen.');
+    expect($data['meta_description'])->toBe('Top Baumpflege Service direkt in Hamburg buchen.');
+});

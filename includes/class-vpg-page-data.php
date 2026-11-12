@@ -184,6 +184,38 @@ class VPG_Page_Data
             )
             : null;
 
+        $raw_description = !empty($template->post_excerpt)
+            ? $template->post_excerpt
+            : $this->get_meta_with_fallback(
+                $template->ID,
+                "_vpg_meta_description",
+                "meta_description"
+            );
+
+        if (!empty($raw_description)) {
+            $description = $this->replace_placeholders(
+                (string) $raw_description,
+                $service,
+                $location,
+                $service_text,
+                $location_text,
+                $location_for_service_text,
+                $service_image_html
+            );
+            $description = function_exists("wp_strip_all_tags")
+                ? wp_strip_all_tags($description)
+                : strip_tags($description);
+        } else {
+            $plain_content = function_exists("wp_strip_all_tags")
+                ? wp_strip_all_tags($content)
+                : strip_tags($content);
+            $description = function_exists("wp_trim_words")
+                ? wp_trim_words($plain_content, 30, "...")
+                : (strlen($plain_content) > 160 ? substr($plain_content, 0, 157) . "..." : $plain_content);
+        }
+
+        $description = trim((string) preg_replace('/\s+/', ' ', $description));
+
         return [
             "service" => $service,
             "location" => $location,
@@ -191,6 +223,8 @@ class VPG_Page_Data
             "vpg_template" => $template,
             "title" => $title,
             "content" => $content,
+            "description" => $description,
+            "meta_description" => $description,
             "location_text" => $location_text,
             "location_for_service_text" => $location_for_service_text,
             "service_text" => $service_text,

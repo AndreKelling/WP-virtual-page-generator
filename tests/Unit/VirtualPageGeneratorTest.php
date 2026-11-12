@@ -39,6 +39,7 @@ test('register_post_types hides all VPG post types from navigation menus', funct
 
     expect($mock_registered_post_types)->toHaveKey('vpg_template');
     expect($mock_registered_post_types['vpg_template']['show_in_nav_menus'])->toBeFalse();
+    expect($mock_registered_post_types['vpg_template']['supports'])->toContain('excerpt');
 });
 
 test('register_blocks registers both blocks with api_version 3 and correct script dependencies', function () {
@@ -401,6 +402,8 @@ test('get_page_data delegates to VPG_Page_Data and exposes helper functions', fu
     expect(vpg_get_page_data())->toBe($data);
     expect(vpg_get_virtual_page_data())->toBe($data);
     expect(vpg_get_title())->toBe('Mowing in Berlin');
+    expect(vpg_get_description())->toBe('We offer Mowing in Berlin.');
+    expect(vpg_get_meta_description())->toBe('We offer Mowing in Berlin.');
     expect(vpg_get_canonical_url())->toBe('http://example.com/mowing-in-berlin/');
 });
 
@@ -504,6 +507,44 @@ test('filter_tsf_title returns virtual page title when active', function () {
     $generator->set_page_data(null);
     $titleFallback = $generator->filter_tsf_title('Original TSF Title');
     expect($titleFallback)->toBe('Original TSF Title');
+});
+
+test('output_meta_description echoes meta description tag for virtual pages', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'description' => 'Find professional mowing services in Berlin.',
+    ]);
+
+    ob_start();
+    $generator->output_meta_description();
+    $output = ob_get_clean();
+
+    expect($output)->toBe('<meta name="description" content="Find professional mowing services in Berlin." />' . "\n");
+});
+
+test('output_meta_description outputs nothing when not on a virtual page', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data(null);
+
+    ob_start();
+    $generator->output_meta_description();
+    $output = ob_get_clean();
+
+    expect($output)->toBe('');
+});
+
+test('filter_tsf_description returns virtual page description when active', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'description' => 'Find professional mowing services in Berlin.',
+    ]);
+
+    $desc = $generator->filter_tsf_description('Original TSF Description');
+    expect($desc)->toBe('Find professional mowing services in Berlin.');
+
+    $generator->set_page_data(null);
+    $descFallback = $generator->filter_tsf_description('Original TSF Description');
+    expect($descFallback)->toBe('Original TSF Description');
 });
 
 test('output_canonical_url echoes canonical link tag for virtual pages', function () {
