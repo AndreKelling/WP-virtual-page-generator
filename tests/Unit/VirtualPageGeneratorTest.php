@@ -292,7 +292,7 @@ test('render_location_list_block returns message when no locations found', funct
     expect($html)->toBe('<p>No locations found.</p>');
 });
 
-test('add_to_tsf_sitemap adds virtual urls with correct lastmod', function () {
+test('add_to_tsf_sitemap adds virtual urls with correct w3c lastmod', function () {
     global $mock_posts;
 
     $template = new WP_Post();
@@ -322,7 +322,40 @@ test('add_to_tsf_sitemap adds virtual urls with correct lastmod', function () {
     $sitemap = $generator->add_to_tsf_sitemap([], []);
 
     expect($sitemap)->toHaveKey('http://example.com/mowing-in-berlin/');
-    expect($sitemap['http://example.com/mowing-in-berlin/']['lastmod'])->toBe('2023-01-05 12:00:00');
+    expect($sitemap['http://example.com/mowing-in-berlin/']['lastmod'])->toBe('2023-01-05T12:00:00+00:00');
+});
+
+test('add_to_tsf_sitemap handles empty or missing post_modified_gmt gracefully', function () {
+    global $mock_posts;
+
+    $template = new WP_Post();
+    $template->ID = 10;
+    $template->post_title = '{{service}} in {{location}}';
+    $template->post_type = 'vpg_template';
+    $template->post_status = 'publish';
+    $template->post_modified_gmt = '';
+
+    $location = new WP_Post();
+    $location->ID = 20;
+    $location->post_title = 'Berlin';
+    $location->post_name = 'berlin';
+    $location->post_type = 'vpg_location';
+    $location->post_modified_gmt = null;
+
+    $service = new WP_Post();
+    $service->ID = 30;
+    $service->post_title = 'Mowing';
+    $service->post_name = 'mowing';
+    $service->post_type = 'vpg_service';
+    $service->post_modified_gmt = '0000-00-00 00:00:00';
+
+    $mock_posts = [$template, $location, $service];
+
+    $generator = Generator::get_instance();
+    $sitemap = $generator->add_to_tsf_sitemap([], []);
+
+    expect($sitemap)->toHaveKey('http://example.com/mowing-in-berlin/');
+    expect($sitemap['http://example.com/mowing-in-berlin/']['lastmod'])->toBe('');
 });
 
 test('handle_virtual_page returns theme template if located', function () {

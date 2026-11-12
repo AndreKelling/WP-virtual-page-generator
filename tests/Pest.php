@@ -280,6 +280,18 @@ function mock_wp_functions() {
         }
     }
 
+    if (!function_exists('mysql2date')) {
+        function mysql2date($format, $date, $translate = true) {
+            if (empty($date) || $date === '0000-00-00 00:00:00') {
+                return false;
+            }
+            if ($format === 'G' || $format === 'U') {
+                return strtotime($date . ' GMT');
+            }
+            return gmdate($format, strtotime($date . ' GMT'));
+        }
+    }
+
     if (!function_exists('wp_get_attachment_image')) {
         function wp_get_attachment_image($attachment_id, $size = 'thumbnail', $icon = false, $attr = '') {
             return '<img src="http://example.com/wp-content/uploads/image-' . $attachment_id . '.jpg" alt="" />';

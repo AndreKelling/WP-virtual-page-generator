@@ -547,12 +547,19 @@ class VirtualPageGenerator
                         $service->post_name,
                         $location->post_name,
                     );
+                    $raw_lastmod = max(
+                        $template->post_modified_gmt ?? "",
+                        $service->post_modified_gmt ?? "",
+                        $location->post_modified_gmt ?? "",
+                    );
+                    $lastmod = !empty($raw_lastmod) && $raw_lastmod !== "0000-00-00 00:00:00"
+                        ? (function_exists("mysql2date")
+                            ? mysql2date(DATE_W3C, $raw_lastmod, false)
+                            : gmdate(DATE_W3C, strtotime($raw_lastmod . " GMT")))
+                        : "";
+
                     $custom_urls[$url] = [
-                        "lastmod" => max(
-                            $template->post_modified_gmt,
-                            $service->post_modified_gmt,
-                            $location->post_modified_gmt,
-                        ),
+                        "lastmod" => $lastmod,
                     ];
                 }
             }

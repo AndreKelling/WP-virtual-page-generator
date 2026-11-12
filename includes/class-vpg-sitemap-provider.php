@@ -47,10 +47,20 @@ if ( class_exists( 'WP_Sitemaps_Provider' ) ) {
 				foreach ( $services as $service ) {
 					foreach ( $locations as $location ) {
 						if ( $count >= $offset && $added < $limit ) {
-							$url_list[] = [
-								'loc'     => $generator->get_virtual_url( $template, $service->post_name, $location->post_name ),
-								'lastmod' => max( $template->post_modified_gmt, $service->post_modified_gmt, $location->post_modified_gmt ),
+							$raw_lastmod = max( $template->post_modified_gmt, $service->post_modified_gmt, $location->post_modified_gmt );
+							$lastmod     = ! empty( $raw_lastmod ) && $raw_lastmod !== '0000-00-00 00:00:00'
+								? ( function_exists( 'mysql2date' ) ? mysql2date( DATE_W3C, $raw_lastmod, false ) : gmdate( DATE_W3C, strtotime( $raw_lastmod . ' GMT' ) ) )
+								: '';
+
+							$url_entry = [
+								'loc' => $generator->get_virtual_url( $template, $service->post_name, $location->post_name ),
 							];
+
+							if ( ! empty( $lastmod ) ) {
+								$url_entry['lastmod'] = $lastmod;
+							}
+
+							$url_list[] = $url_entry;
 							$added++;
 						}
 						$count++;
