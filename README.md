@@ -156,12 +156,17 @@ get_footer();
 | `service_image_html` | `string` | Rendered HTML image tag for the service image. |
 | `canonical_url` / `url` | `string\|null` | Fully-resolved canonical URL for the generated virtual page. |
 
-## Canonical URL & SEO Integration
+## Title, Canonical URL & SEO Integration
 
-The plugin automatically handles search engine canonicalization for virtual pages:
-- **`wp_head` Output**: Injects `<link rel="canonical" href="...">` directly into the document `<head>` on generated virtual pages.
-- **Filter Integration**: Hooks into WordPress core `get_canonical_url` and The SEO Framework's `the_seo_framework_canonical_url` filter.
-- **Helper Function**: `vpg_get_canonical_url()` provides quick access to the canonical URL of the current virtual page.
+The plugin automatically handles search engine title tags, meta titles, and canonicalization for virtual pages:
+- **`wp_head` Output**:
+  - Injects `<title>` tag when the active theme does not declare `title-tag` theme support.
+  - Injects `<link rel="canonical" href="...">` directly into the document `<head>`.
+- **Title Filters**: Hooks into `pre_get_document_title`, `document_title_parts`, `wp_title`, and The SEO Framework's title filters (`the_seo_framework_title`, `the_seo_framework_pro_title`, `the_seo_framework_title_from_custom_field`, `the_seo_framework_ogtitle_output`, `the_seo_framework_twittertitle_output`) so HTML `<title>` and social meta tags reflect the generated page title.
+- **Canonical URL Filters**: Hooks into WordPress core `get_canonical_url` and The SEO Framework's `the_seo_framework_canonical_url` filter.
+- **Helper Functions**:
+  - `vpg_get_title()` provides quick access to the generated title of the current virtual page.
+  - `vpg_get_canonical_url()` provides quick access to the canonical URL of the current virtual page.
 
 ## URL Routing
 

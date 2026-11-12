@@ -61,9 +61,43 @@ class VirtualPageGenerator
         add_action("init", [$this, "register_post_types"]);
         add_action("admin_menu", [$this, "add_admin_menu"]);
         add_filter("template_include", [$this, "handle_virtual_page"]);
+        add_filter("pre_get_document_title", [$this, "filter_document_title"], 10);
+        add_filter("document_title_parts", [$this, "filter_document_title_parts"], 10);
+        add_filter("wp_title", [$this, "filter_wp_title"], 10, 3);
+        add_action("wp_head", [$this, "output_title_tag"], 1);
         add_action("wp_head", [$this, "output_canonical_url"]);
         add_filter("get_canonical_url", [$this, "filter_canonical_url"], 10, 2);
         add_action("wp_sitemaps_init", [$this, "init_sitemaps"]);
+        add_filter(
+            "the_seo_framework_title",
+            [$this, "filter_tsf_title"],
+            10,
+            2,
+        );
+        add_filter(
+            "the_seo_framework_pro_title",
+            [$this, "filter_tsf_title"],
+            10,
+            2,
+        );
+        add_filter(
+            "the_seo_framework_title_from_custom_field",
+            [$this, "filter_tsf_title"],
+            10,
+            2,
+        );
+        add_filter(
+            "the_seo_framework_ogtitle_output",
+            [$this, "filter_tsf_title"],
+            10,
+            2,
+        );
+        add_filter(
+            "the_seo_framework_twittertitle_output",
+            [$this, "filter_tsf_title"],
+            10,
+            2,
+        );
         add_filter(
             "the_seo_framework_sitemap_additional_urls",
             [$this, "add_to_tsf_sitemap"],
@@ -280,8 +314,91 @@ class VirtualPageGenerator
     }
 
     // ========================================================================
-    // Canonical URL & SEO
+    // Title, Canonical URL & SEO
     // ========================================================================
+
+    /**
+     * Output title tag in wp_head for virtual pages when theme does not support title-tag.
+     */
+    public function output_title_tag(): void
+    {
+        if (function_exists("current_theme_supports") && current_theme_supports("title-tag")) {
+            return;
+        }
+
+        $data = $this->get_page_data();
+        if (empty($data) || empty($data["title"])) {
+            return;
+        }
+
+        echo '<title>' . esc_html($data["title"]) . '</title>' . "\n";
+    }
+
+    /**
+     * Filter the document title for virtual pages.
+     *
+     * @param string $title
+     * @return string
+     */
+    public function filter_document_title($title = "")
+    {
+        $data = $this->get_page_data();
+        if (!empty($data) && !empty($data["title"])) {
+            return $data["title"];
+        }
+        return $title;
+    }
+
+    /**
+     * Filter document title parts for virtual pages.
+     *
+     * @param array<string, string> $title_parts
+     * @return array<string, string>
+     */
+    public function filter_document_title_parts($title_parts = [])
+    {
+        $data = $this->get_page_data();
+        if (!empty($data) && !empty($data["title"])) {
+            if (!is_array($title_parts)) {
+                $title_parts = [];
+            }
+            $title_parts["title"] = $data["title"];
+        }
+        return $title_parts;
+    }
+
+    /**
+     * Filter wp_title for virtual pages.
+     *
+     * @param string $title
+     * @param string $sep
+     * @param string $seplocation
+     * @return string
+     */
+    public function filter_wp_title($title = "", $sep = "", $seplocation = "")
+    {
+        $data = $this->get_page_data();
+        if (!empty($data) && !empty($data["title"])) {
+            return $data["title"];
+        }
+        return $title;
+    }
+
+    /**
+     * Filter The SEO Framework title for virtual pages.
+     *
+     * @param string $title
+     * @param mixed $id
+     * @return string
+     */
+    public function filter_tsf_title($title = "", $id = 0)
+    {
+        $data = $this->get_page_data();
+        if (!empty($data) && !empty($data["title"])) {
+            return $data["title"];
+        }
+        return $title;
+    }
 
     /**
      * Output canonical link tag in wp_head for virtual pages.
@@ -703,6 +820,19 @@ if (!function_exists("vpg_get_virtual_page_data")) {
     function vpg_get_virtual_page_data(): ?array
     {
         return VirtualPageGenerator::get_instance()?->get_page_data();
+    }
+}
+
+if (!function_exists("vpg_get_title")) {
+    /**
+     * Retrieve title for the current virtual page.
+     *
+     * @return string|null
+     */
+    function vpg_get_title(): ?string
+    {
+        $data = vpg_get_page_data();
+        return $data["title"] ?? null;
     }
 }
 

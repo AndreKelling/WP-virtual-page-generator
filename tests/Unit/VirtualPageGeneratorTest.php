@@ -400,7 +400,110 @@ test('get_page_data delegates to VPG_Page_Data and exposes helper functions', fu
     // Test helper functions delegate correctly
     expect(vpg_get_page_data())->toBe($data);
     expect(vpg_get_virtual_page_data())->toBe($data);
+    expect(vpg_get_title())->toBe('Mowing in Berlin');
     expect(vpg_get_canonical_url())->toBe('http://example.com/mowing-in-berlin/');
+});
+
+test('output_title_tag echoes title tag for virtual pages when theme does not support title-tag', function () {
+    global $mock_theme_supports;
+    $mock_theme_supports = ['title-tag' => false];
+
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'title' => 'Mowing in Berlin',
+    ]);
+
+    ob_start();
+    $generator->output_title_tag();
+    $output = ob_get_clean();
+
+    expect($output)->toBe('<title>Mowing in Berlin</title>' . "\n");
+});
+
+test('output_title_tag outputs nothing when theme supports title-tag', function () {
+    global $mock_theme_supports;
+    $mock_theme_supports = ['title-tag' => true];
+
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'title' => 'Mowing in Berlin',
+    ]);
+
+    ob_start();
+    $generator->output_title_tag();
+    $output = ob_get_clean();
+
+    expect($output)->toBe('');
+});
+
+test('output_title_tag outputs nothing when not on a virtual page', function () {
+    global $mock_theme_supports;
+    $mock_theme_supports = ['title-tag' => false];
+
+    $generator = Generator::get_instance();
+    $generator->set_page_data(null);
+
+    ob_start();
+    $generator->output_title_tag();
+    $output = ob_get_clean();
+
+    expect($output)->toBe('');
+});
+
+test('filter_document_title returns virtual page title when active', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'title' => 'Mowing in Berlin',
+    ]);
+
+    $title = $generator->filter_document_title('Original Title');
+    expect($title)->toBe('Mowing in Berlin');
+
+    $generator->set_page_data(null);
+    $titleFallback = $generator->filter_document_title('Original Title');
+    expect($titleFallback)->toBe('Original Title');
+});
+
+test('filter_document_title_parts modifies title part for virtual pages', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'title' => 'Mowing in Berlin',
+    ]);
+
+    $parts = $generator->filter_document_title_parts(['title' => 'Original', 'site' => 'Gartenzebra']);
+    expect($parts)->toBe(['title' => 'Mowing in Berlin', 'site' => 'Gartenzebra']);
+
+    $generator->set_page_data(null);
+    $partsFallback = $generator->filter_document_title_parts(['title' => 'Original', 'site' => 'Gartenzebra']);
+    expect($partsFallback)->toBe(['title' => 'Original', 'site' => 'Gartenzebra']);
+});
+
+test('filter_wp_title returns virtual page title when active', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'title' => 'Mowing in Berlin',
+    ]);
+
+    $title = $generator->filter_wp_title('Original Title');
+    expect($title)->toBe('Mowing in Berlin');
+
+    $generator->set_page_data(null);
+    $titleFallback = $generator->filter_wp_title('Original Title');
+    expect($titleFallback)->toBe('Original Title');
+});
+
+test('filter_tsf_title returns virtual page title when active', function () {
+    $generator = Generator::get_instance();
+    $generator->set_page_data([
+        'title' => 'Mowing in Berlin',
+    ]);
+
+    $title = $generator->filter_tsf_title('Original TSF Title');
+    expect($title)->toBe('Mowing in Berlin');
+
+    $generator->set_page_data(null);
+    $titleFallback = $generator->filter_tsf_title('Original TSF Title');
+    expect($titleFallback)->toBe('Original TSF Title');
 });
 
 test('output_canonical_url echoes canonical link tag for virtual pages', function () {

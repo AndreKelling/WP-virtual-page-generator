@@ -225,6 +225,13 @@ function mock_wp_functions() {
         }
     }
 
+    if (!function_exists('current_theme_supports')) {
+        function current_theme_supports($feature, ...$args) {
+            global $mock_theme_supports;
+            return !empty($mock_theme_supports[$feature]);
+        }
+    }
+
     if (!function_exists('esc_attr')) {
         function esc_attr($text) {
             return htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8');
